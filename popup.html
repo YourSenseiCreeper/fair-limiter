@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Limiter</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #111010;
+      --surface:  #1a1918;
+      --border:   rgba(255,255,255,.08);
+      --text:     #f0ebe0;
+      --muted:    rgba(240,235,224,.45);
+      --accent:   #ff4a2b;
+      --accent2:  #ff7a5a;
+      --green:    #4ade80;
+      --warn:     #fbbf24;
+    }
+
+    body {
+      width: 320px;
+      min-height: 400px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      overflow: hidden;
+    }
+
+    /* ── header ── */
+    .header {
+      padding: 20px 20px 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo {
+      width: 28px; height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 8px;
+      display: grid; place-items: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .app-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    .day-badge {
+      margin-left: auto;
+      font-size: .7rem;
+      color: var(--muted);
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 3px 10px;
+      letter-spacing: .04em;
+    }
+
+    /* ── ring section ── */
+    .ring-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 20px 24px;
+    }
+
+    .ring-svg { position: relative; }
+
+    .ring-track { stroke: rgba(255,255,255,.06); }
+    .ring-fill  { stroke: var(--accent); stroke-linecap: round;
+                  transition: stroke-dashoffset .4s ease, stroke .4s; }
+    .ring-fill.warn   { stroke: var(--warn); }
+    .ring-fill.done   { stroke: rgba(255,255,255,.15); }
+
+    .ring-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 2px;
+    }
+
+    .time-left {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.75rem;
+      line-height: 1;
+      letter-spacing: -.02em;
+    }
+
+    .time-label {
+      font-size: .68rem;
+      color: var(--muted);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    /* ── status pill ── */
+    .status-pill {
+      margin-top: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 14px;
+      border-radius: 100px;
+      font-size: .74rem;
+      letter-spacing: .04em;
+      border: 1px solid transparent;
+    }
+
+    .status-pill.active   { background: rgba(74,222,128,.1); border-color: rgba(74,222,128,.2); color: var(--green); }
+    .status-pill.idle     { background: rgba(255,255,255,.05); border-color: var(--border); color: var(--muted); }
+    .status-pill.limited  { background: rgba(255,74,43,.1); border-color: rgba(255,74,43,.25); color: var(--accent2); }
+
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .dot.pulse { animation: blink 1.2s ease-in-out infinite; }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── stats row ── */
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 0 16px;
+      margin-bottom: 12px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+
+    .stat-val {
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+
+    .stat-lbl {
+      font-size: .7rem;
+      color: var(--muted);
+      letter-spacing: .04em;
+    }
+
+    /* ── limit setter ── */
+    .section {
+      padding: 0 16px;
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      font-size: .7rem;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .limit-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+    }
+
+    .limit-row input[type=range] {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255,255,255,.1);
+      outline: none;
+    }
+
+    .limit-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 0 3px rgba(255,74,43,.25);
+    }
+
+    .limit-val {
+      font-size: .85rem;
+      font-weight: 500;
+      min-width: 40px;
+      text-align: right;
+      color: var(--accent2);
+    }
+
+    /* ── action buttons ── */
+    .actions {
+      padding: 0 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 11px 16px;
+      border-radius: 10px;
+      border: none;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .85rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all .18s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(255,74,43,.3);
+    }
+
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,74,43,.4); }
+    .btn-primary:disabled { opacity: .35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn-ghost {
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-ghost:hover { background: rgba(255,255,255,.08); color: var(--text); }
+
+    .divider { height: 1px; background: var(--border); margin: 4px 0; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="logo">📺</div>
+    <span class="app-name">YT Limiter</span>
+    <span class="day-badge" id="day-badge">Today</span>
+  </div>
+
+  <div class="ring-wrap">
+    <div class="ring-svg" style="width:140px;height:140px;">
+      <svg width="140" height="140" viewBox="0 0 140 140">
+        <circle class="ring-track" cx="70" cy="70" r="56" fill="none" stroke-width="8"/>
+        <circle class="ring-fill" id="ring-fill"
+          cx="70" cy="70" r="56" fill="none" stroke-width="8"
+          stroke-dasharray="351.86"
+          stroke-dashoffset="0"
+          transform="rotate(-90 70 70)"/>
+      </svg>
+      <div class="ring-center">
+        <span class="time-left" id="time-left">–:––</span>
+        <span class="time-label" id="ring-label">remaining</span>
+      </div>
+    </div>
+
+    <div class="status-pill idle" id="status-pill">
+      <div class="dot" id="status-dot"></div>
+      <span id="status-text">Loading…</span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-val" id="used-time">0m</div>
+      <div class="stat-lbl">Used today</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="limit-display">60m</div>
+      <div class="stat-lbl">Daily limit</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Set daily limit</div>
+    <div class="limit-row">
+      <input type="range" id="limit-slider" min="5" max="240" step="5" value="60">
+      <span class="limit-val" id="limit-slider-val">60m</span>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-primary" id="btn-extra" disabled>⏱ +5 min grace period</button>
+    <div class="divider"></div>
+    <button class="btn btn-ghost" id="btn-reset">↺ Reset today's timer</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
