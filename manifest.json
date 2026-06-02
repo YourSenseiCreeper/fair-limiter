@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "YouTube Time Limiter",
-  "version": "1.0.0",
-  "description": "Limit your daily time on YouTube with grace.",
+  "version": "1.1.0",
+  "description": "Limit your daily time on YouTube with grace. Block Shorts too.",
   "permissions": [
     "storage",
     "alarms",
@@ -20,6 +20,11 @@
       "matches": ["*://*.youtube.com/*"],
       "js": ["content.js"],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["*://*.youtube.com/*"],
+      "js": ["shorts.js"],
+      "run_at": "document_start"
     }
   ],
   "action": {
@@ -30,6 +35,7 @@
       "128": "icons/icon128.png"
     }
   },
+  "options_page": "options.html",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",

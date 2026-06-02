@@ -71,6 +71,9 @@ async function onTick() {
 }
 
 async function scheduleWarnIfNeeded() {
+  const data = await chrome.storage.local.get(['timerWarn', ALARM_WARN]);
+  const shouldWarn = data.timerWarn ?? true;
+  if (!shouldWarn) return;
   const existing = await chrome.alarms.get(ALARM_WARN);
   if (!existing) {
     chrome.notifications.create('yt_warn_notif', {
@@ -171,9 +174,13 @@ chrome.windows.onFocusChanged.addListener(() => refreshTracking());
 
 chrome.notifications.onClosed.addListener(async (notifId) => {
   if (notifId === 'yt_limit_notif') {
-    // Close YouTube tabs
-    const tabs = await chrome.tabs.query({ url: '*://*.youtube.com/*' });
-    tabs.forEach(t => chrome.tabs.remove(t.id));
+    const data = await chrome.storage.local.get('timerCloseTab');
+    const shouldClose = data.timerCloseTab ?? true;
+    if (shouldClose) {
+      // Close YouTube tabs
+      const tabs = await chrome.tabs.query({ url: '*://*.youtube.com/*' });
+      tabs.forEach(t => chrome.tabs.remove(t.id));
+    }
   }
 });
 
@@ -198,6 +205,22 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }).then(() => {
       broadcastUpdate(0, null, false);
       sendResponse({ ok: true });
+    });
+    return true;
+  }
+  if (msg.type === 'SET_SHORTS') {
+    chrome.storage.local.set({
+      shortsHideSections:  msg.hideSections,
+      shortsBlockPlayback: msg.blockPlayback,
+    }).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg.type === 'GET_SHORTS') {
+    chrome.storage.local.get(['shortsHideSections', 'shortsBlockPlayback'], data => {
+      sendResponse({
+        hideSections:  data.shortsHideSections  ?? false,
+        blockPlayback: data.shortsBlockPlayback ?? false,
+      });
     });
     return true;
   }

@@ -122,3 +122,8 @@ $btnReset.addEventListener('click', () => {
     chrome.runtime.sendMessage({ type: 'GET_STATE' }, (s) => { if (s) render(s); });
   });
 });
+
+// ── settings ──────────────────────────────────────────────────────────────────
+document.getElementById('btn-settings').addEventListener('click', () => {
+  chrome.runtime.openOptionsPage();
+});
