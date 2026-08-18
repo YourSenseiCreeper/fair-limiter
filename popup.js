@@ -127,3 +127,7 @@ $btnReset.addEventListener('click', () => {
 document.getElementById('btn-settings').addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
 });
+
+document.getElementById('btn-history').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('options.html#history') });
+});

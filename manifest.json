@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Time Limiter",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Limit your daily time on YouTube with grace. Block Shorts too.",
   "permissions": [
     "storage",

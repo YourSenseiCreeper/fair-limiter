@@ -123,6 +123,7 @@
     .tab-btn.active { color: var(--text); }
     .tab-btn[data-tab="timer"].active::after  { background: var(--accent); }
     .tab-btn[data-tab="shorts"].active::after { background: var(--violet); }
+    .tab-btn[data-tab="history"].active::after { background: var(--green); }
 
     .tab-icon {
       font-size: 1rem;
@@ -400,6 +401,27 @@
     }
 
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
+    .history-toolbar { display:flex; align-items:center; justify-content:space-between; padding:18px 20px 0; gap:16px; }
+    .history-total { font-size:.8rem; color:var(--muted); }
+    .history-total strong { display:block; color:var(--text); font-size:1.1rem; }
+    .range-switch { display:flex; padding:3px; background:rgba(255,255,255,.05); border:1px solid var(--border); border-radius:9px; }
+    .range-btn { border:0; background:transparent; color:var(--muted); padding:6px 12px; border-radius:6px; cursor:pointer; font:500 .76rem 'DM Sans',sans-serif; }
+    .range-btn.active { background:rgba(74,222,128,.14); color:var(--green); }
+    .chart { height:270px; padding:28px 20px 18px; display:flex; align-items:stretch; gap:8px; border-bottom:1px solid var(--border); }
+    .chart-column { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:8px; }
+    .chart-value { height:18px; color:var(--muted); font-size:.65rem; white-space:nowrap; }
+    .chart-track { width:100%; max-width:42px; height:178px; display:flex; align-items:flex-end; border-radius:7px; background:rgba(255,255,255,.035); overflow:hidden; }
+    .chart-bar { width:100%; min-height:2px; border-radius:7px 7px 3px 3px; background:linear-gradient(180deg,var(--green),#22a95a); transition:height .25s ease; }
+    .chart-column.today .chart-track { outline:1px solid rgba(74,222,128,.35); }
+    .chart-label { font-size:.66rem; color:var(--muted); white-space:nowrap; }
+    .chart-empty { margin:auto; color:var(--muted); font-size:.82rem; }
+    .history-summary { display:grid; grid-template-columns:repeat(3,1fr); }
+    .summary-item { padding:16px 20px; border-right:1px solid var(--border); }
+    .summary-item:last-child { border-right:0; }
+    .summary-value { font-weight:600; font-size:.95rem; }
+    .summary-label { color:var(--muted); font-size:.7rem; margin-top:2px; }
+    @media (max-width:560px) { .chart { gap:3px; padding-left:10px; padding-right:10px; } .chart-value { display:none; } .chart-label { font-size:.58rem; } }
   </style>
 </head>
 <body>
@@ -412,7 +434,7 @@
       <div class="topbar-title">YT Limiter</div>
       <div class="topbar-sub">Extension Settings</div>
     </div>
-    <span class="topbar-version">v1.1.0</span>
+    <span class="topbar-version">v1.2.0</span>
   </div>
 
   <!-- tabs -->
@@ -422,6 +444,9 @@
     </button>
     <button class="tab-btn" data-tab="shorts">
       <span class="tab-icon">📱</span> Shorts
+    </button>
+    <button class="tab-btn" data-tab="history">
+      <span class="tab-icon">▥</span> History
     </button>
   </div>
 
@@ -504,6 +529,29 @@
       <button class="btn btn-primary" id="save-timer">Save timer settings</button>
     </div>
 
+  </div>
+
+  <!-- ══ HISTORY TAB ══ -->
+  <div class="tab-panel" id="panel-history">
+    <div class="section-head">
+      <h2>Watch time history</h2>
+      <p>Your daily YouTube watch time is stored locally on this device.</p>
+    </div>
+    <div class="card">
+      <div class="history-toolbar">
+        <div class="history-total"><strong id="history-total">0m</strong><span id="history-period">This week</span></div>
+        <div class="range-switch" role="group" aria-label="History range">
+          <button class="range-btn active" data-range="week">Week</button>
+          <button class="range-btn" data-range="month">Month</button>
+        </div>
+      </div>
+      <div class="chart" id="history-chart" aria-label="Daily watch time bar chart"></div>
+      <div class="history-summary">
+        <div class="summary-item"><div class="summary-value" id="history-average">0m</div><div class="summary-label">Daily average</div></div>
+        <div class="summary-item"><div class="summary-value" id="history-longest">0m</div><div class="summary-label">Longest day</div></div>
+        <div class="summary-item"><div class="summary-value" id="history-active">0</div><div class="summary-label">Active days</div></div>
+      </div>
+    </div>
   </div>
 
   <!-- ══ SHORTS TAB ══ -->

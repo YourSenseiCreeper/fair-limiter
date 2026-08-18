@@ -7,7 +7,25 @@ const ALARM_WARN       = 'yt_warn';        // 1-min warning
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function todayKey() {
-  return new Date().toISOString().slice(0, 10); // "2025-06-01"
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+async function updateHistory(date, elapsed) {
+  const data = await chrome.storage.local.get('watchHistory');
+  const history = data.watchHistory ?? {};
+  history[date] = Math.max(0, elapsed);
+
+  // Keep one year of daily entries so storage cannot grow indefinitely.
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 365);
+  const cutoffKey = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}-${String(cutoff.getDate()).padStart(2, '0')}`;
+  Object.keys(history).forEach(key => { if (key < cutoffKey) delete history[key]; });
+
+  await chrome.storage.local.set({ watchHistory: history });
 }
 
 async function getState() {
@@ -18,6 +36,9 @@ async function getState() {
   const today = todayKey();
   // Reset elapsed if it's a new day
   if (data.date !== today) {
+    if (data.date && Number.isFinite(data.elapsed)) {
+      await updateHistory(data.date, data.elapsed);
+    }
     await chrome.storage.local.set({
       date: today,
       elapsed: 0,
@@ -40,7 +61,11 @@ async function getState() {
 }
 
 async function saveElapsed(elapsed) {
-  await chrome.storage.local.set({ elapsed });
+  const date = todayKey();
+  const data = await chrome.storage.local.get('watchHistory');
+  const watchHistory = data.watchHistory ?? {};
+  watchHistory[date] = elapsed;
+  await chrome.storage.local.set({ elapsed, watchHistory });
 }
 
 // ── tick: called every TICK_INTERVAL_S seconds while YouTube tab is active ──
@@ -200,11 +225,25 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
   if (msg.type === 'RESET_DAY') {
-    chrome.storage.local.set({
-      date: todayKey(), elapsed: 0, limitReached: false, extraUsed: false, tracking: false
+    const date = todayKey();
+    chrome.storage.local.get('watchHistory').then(data => {
+      const watchHistory = data.watchHistory ?? {};
+      watchHistory[date] = 0;
+      return chrome.storage.local.set({
+        date, elapsed: 0, limitReached: false, extraUsed: false, tracking: false, watchHistory
+      });
     }).then(() => {
       broadcastUpdate(0, null, false);
       sendResponse({ ok: true });
+    });
+    return true;
+  }
+  if (msg.type === 'GET_HISTORY') {
+    getState().then(async state => {
+      const data = await chrome.storage.local.get('watchHistory');
+      const history = data.watchHistory ?? {};
+      history[state.date] = state.elapsed;
+      sendResponse({ history });
     });
     return true;
   }

@@ -18,14 +18,95 @@ function showToast(msg = '✓ Settings saved', color = 'var(--green)') {
 }
 
 // ── tab switching ─────────────────────────────────────────────────────────────
+function selectTab(tab) {
+  const btn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+  const panel = document.getElementById(`panel-${tab}`);
+  if (!btn || !panel) return;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  panel.classList.add('active');
+  if (tab === 'history') loadHistory();
+}
+
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+    selectTab(btn.dataset.tab);
+    history.replaceState(null, '', `#${btn.dataset.tab}`);
   });
 });
+
+// ── HISTORY TAB ──────────────────────────────────────────────────────────────
+let historyRange = 'week';
+
+function localDateKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function getHistoryDays(range) {
+  const count = range === 'month' ? 30 : 7;
+  const today = new Date();
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(today);
+    date.setDate(today.getDate() - (count - 1 - index));
+    return date;
+  });
+}
+
+function renderHistory(history) {
+  const days = getHistoryDays(historyRange);
+  const values = days.map(date => history[localDateKey(date)] ?? 0);
+  const max = Math.max(...values, 1);
+  const total = values.reduce((sum, value) => sum + value, 0);
+  const active = values.filter(value => value > 0).length;
+  const chart = document.getElementById('history-chart');
+  chart.textContent = '';
+
+  days.forEach((date, index) => {
+    const value = values[index];
+    const column = document.createElement('div');
+    column.className = `chart-column${localDateKey(date) === localDateKey(new Date()) ? ' today' : ''}`;
+    column.title = `${date.toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric' })}: ${fmtUsed(value)}`;
+
+    const valueLabel = document.createElement('span');
+    valueLabel.className = 'chart-value';
+    valueLabel.textContent = value ? fmtUsed(value) : '–';
+    const track = document.createElement('div');
+    track.className = 'chart-track';
+    const bar = document.createElement('div');
+    bar.className = 'chart-bar';
+    bar.style.height = `${value ? Math.max(3, value / max * 100) : 0}%`;
+    track.appendChild(bar);
+    const label = document.createElement('span');
+    label.className = 'chart-label';
+    label.textContent = historyRange === 'week'
+      ? date.toLocaleDateString(undefined, { weekday:'short' }).slice(0, 2)
+      : (index % 5 === 0 || index === days.length - 1 ? date.getDate() : '');
+    column.append(valueLabel, track, label);
+    chart.appendChild(column);
+  });
+
+  document.getElementById('history-total').textContent = fmtUsed(total);
+  document.getElementById('history-period').textContent = historyRange === 'week' ? 'Last 7 days' : 'Last 30 days';
+  document.getElementById('history-average').textContent = fmtUsed(total / days.length);
+  document.getElementById('history-longest').textContent = fmtUsed(Math.max(...values));
+  document.getElementById('history-active').textContent = String(active);
+}
+
+function loadHistory() {
+  chrome.runtime.sendMessage({ type: 'GET_HISTORY' }, data => renderHistory(data?.history ?? {}));
+}
+
+document.querySelectorAll('.range-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    historyRange = btn.dataset.range;
+    document.querySelectorAll('.range-btn').forEach(item => item.classList.toggle('active', item === btn));
+    loadHistory();
+  });
+});
+
+const initialTab = location.hash.slice(1);
+if (initialTab) selectTab(initialTab);
 
 // ── TIMER TAB ─────────────────────────────────────────────────────────────────
 const $timerSlider  = document.getElementById('timer-slider');
