@@ -196,11 +196,17 @@
       line-height: 1.5;
     }
 
-    .card-row-ctrl { flex-shrink: 0; }
+    .card-row-ctrl {
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+    }
 
     /* ── toggle switch ── */
     .toggle {
       position: relative;
+      display: inline-block;
+      flex: 0 0 44px;
       width: 44px; height: 24px;
       cursor: pointer;
     }
@@ -226,6 +232,10 @@
 
     .toggle input:checked ~ .toggle-track { background: var(--violet); }
     .toggle input:checked ~ .toggle-thumb { transform: translateX(20px); box-shadow: 0 1px 8px rgba(139,92,246,.5); }
+    .toggle input:focus-visible ~ .toggle-track {
+      outline: 2px solid var(--text);
+      outline-offset: 3px;
+    }
 
     /* Red variant for timer tab */
     .toggle.red input:checked ~ .toggle-track { background: var(--accent); }
@@ -416,6 +426,60 @@
     .chart-column.today .chart-track { outline:1px solid rgba(74,222,128,.35); }
     .chart-label { font-size:.66rem; color:var(--muted); white-space:nowrap; }
     .chart-empty { margin:auto; color:var(--muted); font-size:.82rem; }
+    .chart.month .chart-value { display:none; }
+    .chart.month { padding-top:20px; }
+    .year-chart { padding:22px 20px 18px; border-bottom:1px solid var(--border); }
+    .heatmap-scroll { overflow-x:auto; padding-bottom:5px; }
+    .heatmap-content { min-width:max-content; }
+    .heatmap-months {
+      display:grid;
+      grid-template-columns:repeat(var(--week-count), 10px);
+      gap:3px;
+      height:20px;
+      margin-left:30px;
+      color:var(--muted);
+      font-size:.62rem;
+      line-height:1;
+    }
+    .heatmap-month { white-space:nowrap; }
+    .heatmap-body { display:flex; align-items:flex-start; gap:8px; }
+    .heatmap-weekdays {
+      display:grid;
+      grid-template-rows:repeat(7, 10px);
+      gap:3px;
+      width:22px;
+      color:var(--muted);
+      font-size:.58rem;
+      line-height:10px;
+    }
+    .heatmap-grid {
+      display:grid;
+      grid-template-columns:repeat(var(--week-count), 10px);
+      grid-template-rows:repeat(7, 10px);
+      grid-auto-flow:column;
+      gap:3px;
+    }
+    .heatmap-cell {
+      width:10px; height:10px;
+      border:1px solid rgba(255,255,255,.035);
+      border-radius:2px;
+      background:rgba(255,255,255,.045);
+    }
+    .heatmap-cell[data-level="1"] { background:#123524; border-color:#19472f; }
+    .heatmap-cell[data-level="2"] { background:#17663a; border-color:#1d7544; }
+    .heatmap-cell[data-level="3"] { background:#239a52; border-color:#2aaa5e; }
+    .heatmap-cell[data-level="4"] { background:var(--green); border-color:#6ee79a; }
+    .heatmap-cell.today { outline:1px solid var(--text); outline-offset:1px; }
+    .heatmap-legend {
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:4px;
+      margin-top:12px;
+      color:var(--muted);
+      font-size:.62rem;
+    }
+    .heatmap-legend .heatmap-cell { display:inline-block; flex:0 0 10px; }
     .history-summary { display:grid; grid-template-columns:repeat(3,1fr); }
     .summary-item { padding:16px 20px; border-right:1px solid var(--border); }
     .summary-item:last-child { border-right:0; }
@@ -543,6 +607,7 @@
         <div class="range-switch" role="group" aria-label="History range">
           <button class="range-btn active" data-range="week">Week</button>
           <button class="range-btn" data-range="month">Month</button>
+          <button class="range-btn" data-range="year">Year</button>
         </div>
       </div>
       <div class="chart" id="history-chart" aria-label="Daily watch time bar chart"></div>

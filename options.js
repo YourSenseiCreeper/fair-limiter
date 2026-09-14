@@ -9,6 +9,18 @@ function fmtUsed(ms) {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+function fmtExactDuration(ms) {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const parts = [];
+  if (hours) parts.push(`${hours}h`);
+  if (minutes || hours) parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+  return parts.join(' ');
+}
+
 function showToast(msg = '✓ Settings saved', color = 'var(--green)') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -44,13 +56,93 @@ function localDateKey(date) {
 }
 
 function getHistoryDays(range) {
-  const count = range === 'month' ? 30 : 7;
+  const count = range === 'year' ? 365 : range === 'month' ? 30 : 7;
   const today = new Date();
   return Array.from({ length: count }, (_, index) => {
     const date = new Date(today);
     date.setDate(today.getDate() - (count - 1 - index));
     return date;
   });
+}
+
+function renderYearHistory(chart, days, values) {
+  chart.className = 'year-chart';
+  chart.setAttribute('aria-label', 'YouTube watch time for the last 365 days');
+
+  const startOffset = (days[0].getDay() + 6) % 7;
+  const weekCount = Math.ceil((startOffset + days.length) / 7);
+  const max = Math.max(...values, 1);
+  const scroll = document.createElement('div');
+  scroll.className = 'heatmap-scroll';
+  const content = document.createElement('div');
+  content.className = 'heatmap-content';
+  content.style.setProperty('--week-count', weekCount);
+
+  const months = document.createElement('div');
+  months.className = 'heatmap-months';
+  const labelledMonths = new Set();
+  days.forEach((date, index) => {
+    const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+    if (labelledMonths.has(monthKey)) return;
+    labelledMonths.add(monthKey);
+    const label = document.createElement('span');
+    label.className = 'heatmap-month';
+    label.style.gridColumn = String(Math.floor((startOffset + index) / 7) + 1);
+    label.textContent = date.toLocaleDateString(undefined, { month:'short' });
+    months.appendChild(label);
+  });
+
+  const body = document.createElement('div');
+  body.className = 'heatmap-body';
+  const weekdays = document.createElement('div');
+  weekdays.className = 'heatmap-weekdays';
+  ['Mon', '', 'Wed', '', 'Fri', '', ''].forEach(label => {
+    const day = document.createElement('span');
+    day.textContent = label;
+    weekdays.appendChild(day);
+  });
+
+  const grid = document.createElement('div');
+  grid.className = 'heatmap-grid';
+  grid.setAttribute('role', 'grid');
+  grid.setAttribute('aria-label', 'YouTube watch time for the last 365 days');
+  const todayKey = localDateKey(new Date());
+  days.forEach((date, index) => {
+    const value = values[index];
+    const dateKey = localDateKey(date);
+    const level = value ? Math.min(4, Math.ceil(value / max * 4)) : 0;
+    const tooltip = `${date.toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' })}: ${fmtExactDuration(value)}`;
+    const cell = document.createElement('div');
+    cell.className = `heatmap-cell${dateKey === todayKey ? ' today' : ''}`;
+    cell.dataset.level = String(level);
+    cell.style.gridColumn = String(Math.floor((startOffset + index) / 7) + 1);
+    cell.style.gridRow = String(((date.getDay() + 6) % 7) + 1);
+    cell.title = tooltip;
+    cell.setAttribute('role', 'gridcell');
+    cell.setAttribute('aria-label', tooltip);
+    grid.appendChild(cell);
+  });
+
+  body.append(weekdays, grid);
+  content.append(months, body);
+  scroll.appendChild(content);
+
+  const legend = document.createElement('div');
+  legend.className = 'heatmap-legend';
+  const less = document.createElement('span');
+  less.textContent = 'Less';
+  legend.appendChild(less);
+  for (let level = 0; level <= 4; level++) {
+    const swatch = document.createElement('span');
+    swatch.className = 'heatmap-cell';
+    swatch.dataset.level = String(level);
+    swatch.setAttribute('aria-hidden', 'true');
+    legend.appendChild(swatch);
+  }
+  const more = document.createElement('span');
+  more.textContent = 'More';
+  legend.appendChild(more);
+  chart.append(scroll, legend);
 }
 
 function renderHistory(history) {
@@ -62,11 +154,17 @@ function renderHistory(history) {
   const chart = document.getElementById('history-chart');
   chart.textContent = '';
 
+  if (historyRange === 'year') {
+    renderYearHistory(chart, days, values);
+  } else {
+    chart.className = `chart ${historyRange}`;
+    chart.setAttribute('aria-label', `Daily YouTube watch time for the last ${days.length} days`);
+
   days.forEach((date, index) => {
     const value = values[index];
     const column = document.createElement('div');
     column.className = `chart-column${localDateKey(date) === localDateKey(new Date()) ? ' today' : ''}`;
-    column.title = `${date.toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric' })}: ${fmtUsed(value)}`;
+    column.title = `${date.toLocaleDateString(undefined, { weekday:'long', month:'short', day:'numeric' })}: ${fmtExactDuration(value)}`;
 
     const valueLabel = document.createElement('span');
     valueLabel.className = 'chart-value';
@@ -85,9 +183,12 @@ function renderHistory(history) {
     column.append(valueLabel, track, label);
     chart.appendChild(column);
   });
+  }
 
   document.getElementById('history-total').textContent = fmtUsed(total);
-  document.getElementById('history-period').textContent = historyRange === 'week' ? 'Last 7 days' : 'Last 30 days';
+  document.getElementById('history-period').textContent = historyRange === 'year'
+    ? 'Last 365 days'
+    : historyRange === 'week' ? 'Last 7 days' : 'Last 30 days';
   document.getElementById('history-average').textContent = fmtUsed(total / days.length);
   document.getElementById('history-longest').textContent = fmtUsed(Math.max(...values));
   document.getElementById('history-active').textContent = String(active);
