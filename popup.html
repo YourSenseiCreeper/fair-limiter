@@ -53,21 +53,10 @@
       line-height: 1;
     }
 
-    .day-badge {
-      margin-left: auto;
-      font-size: .7rem;
-      color: var(--muted);
-      background: rgba(255,255,255,.05);
-      border: 1px solid var(--border);
-      border-radius: 100px;
-      padding: 3px 10px;
-      letter-spacing: .04em;
-    }
-
     .settings-btn {
       background: none;
       border: none;
-      color: var(--muted);
+      color: var(--accent);
       cursor: pointer;
       padding: 4px;
       display: grid;
@@ -76,8 +65,8 @@
       transition: color .15s, background .15s;
       margin-left: 6px;
     }
-    .settings-btn:hover { color: var(--text); background: rgba(255,255,255,.07); }
-    .history-btn { margin-left:0; }
+    .settings-btn:hover { background: rgba(255,255,255,.07); }
+    .history-btn { margin-left: auto; }
 
     /* ── ring section ── */
     .ring-wrap {
@@ -147,24 +136,32 @@
       margin-bottom: 12px;
     }
 
+    .stat-item { min-width: 0; }
+
     .stat-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 12px 10px;
+      min-height: 52px;
+      padding: 10px 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .stat-val {
       font-size: 1.1rem;
       font-weight: 600;
       line-height: 1;
-      margin-bottom: 3px;
+      text-align: center;
     }
 
     .stat-lbl {
       font-size: .7rem;
       color: var(--muted);
       letter-spacing: .04em;
+      text-align: center;
+      margin-bottom: 7px;
     }
 
     /* ── action buttons ── */
@@ -206,7 +203,6 @@
   <div class="header">
     <div class="logo">📺</div>
     <span class="app-name">YT Limiter</span>
-    <span class="day-badge" id="day-badge">Today</span>
     <button class="settings-btn history-btn" id="btn-history" title="Watch history" aria-label="Open watch history">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 3v18h18"/><path d="M7 16v2"/><path d="M12 11v7"/><path d="M17 6v12"/>
@@ -243,17 +239,17 @@
   </div>
 
   <div class="stats">
-    <div class="stat-card">
-      <div class="stat-val" id="used-time">0m</div>
+    <div class="stat-item">
       <div class="stat-lbl">Used today</div>
+      <div class="stat-card"><div class="stat-val" id="used-time">0m</div></div>
     </div>
-    <div class="stat-card">
-      <div class="stat-val" id="limit-display">60m</div>
+    <div class="stat-item">
       <div class="stat-lbl">Daily limit</div>
+      <div class="stat-card"><div class="stat-val" id="limit-display">60m</div></div>
     </div>
-    <div class="stat-card">
-      <div class="stat-val" id="rollover-display">0m</div>
+    <div class="stat-item">
       <div class="stat-lbl">Carried over</div>
+      <div class="stat-card"><div class="stat-val" id="rollover-display">0m</div></div>
     </div>
   </div>
 

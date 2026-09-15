@@ -20,10 +20,6 @@ function fmtUsed(ms) {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
-function todayStr() {
-  return new Date().toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
-}
-
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const $ring       = document.getElementById('ring-fill');
 const $timeLeft   = document.getElementById('time-left');
@@ -35,9 +31,6 @@ const $usedTime   = document.getElementById('used-time');
 const $limitDisp  = document.getElementById('limit-display');
 const $rolloverDisp = document.getElementById('rollover-display');
 const $btnExtra   = document.getElementById('btn-extra');
-const $dayBadge   = document.getElementById('day-badge');
-
-$dayBadge.textContent = todayStr();
 
 // ── render ────────────────────────────────────────────────────────────────────
 function render(state) {
