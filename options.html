@@ -246,6 +246,10 @@
       padding: 18px 20px;
     }
 
+    .slider-wrap.divided { border-top: 1px solid var(--border); }
+    .slider-wrap.disabled { opacity: .42; }
+    .slider-wrap.disabled input { cursor: not-allowed; }
+
     .slider-top {
       display: flex;
       align-items: center;
@@ -541,6 +545,37 @@
 
     <div class="card">
       <div class="card-row">
+        <div class="card-row-icon icon-green">&#8635;</div>
+        <div class="card-row-body">
+          <div class="card-row-label">Carry unused time forward</div>
+          <div class="card-row-desc">Add unused daily time to a cumulative bank. Saved time is only used after today's daily limit has been reached.</div>
+        </div>
+        <div class="card-row-ctrl">
+          <label class="toggle red">
+            <input type="checkbox" id="toggle-rollover" aria-controls="rollover-cap-wrap">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+      <div class="slider-wrap divided" id="rollover-cap-wrap">
+        <div class="slider-top">
+          <span class="slider-label">Maximum added per day</span>
+          <span class="slider-val-badge" id="rollover-cap-badge">30m</span>
+        </div>
+        <input type="range" class="styled" id="rollover-cap-slider" min="5" max="90" step="5" value="30">
+        <div class="slider-marks">
+          <span>5m</span>
+          <span>30m</span>
+          <span>1h</span>
+          <span>1h 30m</span>
+        </div>
+        <div class="card-row-desc" id="rollover-current" style="margin-top:12px;">Currently saved: 0m of 1h 30m</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-row">
         <div class="card-row-icon icon-amber">⏰</div>
         <div class="card-row-body">
           <div class="card-row-label">1-minute warning</div>
@@ -586,7 +621,7 @@
 
     <div class="info-box red">
       <span class="info-box-icon">💡</span>
-      <span>Timer and toggle settings here are saved separately from the popup slider. Both update the same underlying limit.</span>
+      <span>Click "Save timer settings" to apply the daily limit and timer options.</span>
     </div>
 
     <div style="display:flex; justify-content:flex-end; padding-bottom: 80px;">

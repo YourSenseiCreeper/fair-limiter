@@ -215,7 +215,20 @@ const $timerBadge   = document.getElementById('timer-val-badge');
 const $toggleWarn   = document.getElementById('toggle-warn');
 const $toggleClose  = document.getElementById('toggle-close-tab');
 const $toggleGrace  = document.getElementById('toggle-grace');
+const $toggleRollover = document.getElementById('toggle-rollover');
+const $rolloverCapSlider = document.getElementById('rollover-cap-slider');
+const $rolloverCapBadge = document.getElementById('rollover-cap-badge');
+const $rolloverCapWrap = document.getElementById('rollover-cap-wrap');
+const $rolloverCurrent = document.getElementById('rollover-current');
 const $saveTimer    = document.getElementById('save-timer');
+
+function updateRolloverControls() {
+  const enabled = $toggleRollover.checked;
+  $rolloverCapSlider.disabled = !enabled;
+  $rolloverCapWrap.classList.toggle('disabled', !enabled);
+}
+
+updateRolloverControls();
 
 // Load timer state
 chrome.runtime.sendMessage({ type: 'GET_STATE' }, state => {
@@ -223,6 +236,12 @@ chrome.runtime.sendMessage({ type: 'GET_STATE' }, state => {
   const minutes = Math.round((state.limitMs ?? 3600000) / 60000);
   $timerSlider.value = minutes;
   $timerBadge.textContent = fmtUsed(minutes * 60000);
+  const rolloverCapMinutes = Math.round((state.rolloverDailyCapMs ?? 1800000) / 60000);
+  $toggleRollover.checked = state.rolloverEnabled ?? false;
+  $rolloverCapSlider.value = rolloverCapMinutes;
+  $rolloverCapBadge.textContent = fmtUsed(rolloverCapMinutes * 60000);
+  $rolloverCurrent.textContent = `Currently saved: ${fmtUsed(state.rolloverRemainingMs ?? 0)} of 1h 30m`;
+  updateRolloverControls();
 });
 
 // Load timer toggles from storage
@@ -236,15 +255,25 @@ $timerSlider.addEventListener('input', () => {
   $timerBadge.textContent = fmtUsed($timerSlider.value * 60000);
 });
 
+$toggleRollover.addEventListener('change', updateRolloverControls);
+
+$rolloverCapSlider.addEventListener('input', () => {
+  $rolloverCapBadge.textContent = fmtUsed($rolloverCapSlider.value * 60000);
+});
+
 $saveTimer.addEventListener('click', () => {
   const limitMs = parseInt($timerSlider.value, 10) * 60000;
 
   chrome.runtime.sendMessage({ type: 'SET_LIMIT', limitMs }, () => {
-    chrome.storage.local.set({
+    chrome.runtime.sendMessage({
+      type: 'SET_ROLLOVER',
+      enabled: $toggleRollover.checked,
+      dailyCapMs: parseInt($rolloverCapSlider.value, 10) * 60000
+    }, () => chrome.storage.local.set({
       timerWarn:     $toggleWarn.checked,
       timerCloseTab: $toggleClose.checked,
       timerGrace:    $toggleGrace.checked,
-    }, () => showToast('✓ Timer settings saved'));
+    }, () => showToast('✓ Timer settings saved')));
   });
 });
 

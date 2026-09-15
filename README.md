@@ -6,14 +6,14 @@ A Chrome extension that enforces a daily time limit on YouTube, with a one-time 
 
 ## Features
 
-- **Daily time limit** — configurable from 5 minutes to 4 hours via the popup slider (default: 1 hour)
+- **Daily time limit** — configurable from 5 minutes to 4 hours in the timer settings (default: 1 hour)
 - **Active-tab tracking only** — the timer runs only when a YouTube tab is focused; switching away pauses it
 - **1-minute warning** — a system notification fires when you have under a minute left
 - **Limit notification** — when time runs out, a persistent notification appears; dismissing it closes all YouTube tabs
 - **Block screen** — navigating to YouTube after the limit replaces the page content with a styled "time's up" screen
 - **+5 min grace period** — a one-time daily extension, available from both the popup and the block screen
+- **Unused-time rollover** — optionally carry unused daily time forward, with a configurable per-day contribution and a 90-minute bank cap
 - **Daily reset** — elapsed time and the extra-time token reset automatically at midnight
-- **Manual reset** — a reset button in the popup lets you clear today's timer early
 
 ---
 
@@ -37,10 +37,10 @@ Click the toolbar icon to open the popup. It shows:
 
 - A **ring timer** displaying time remaining and a visual fill that drains as you watch
 - A **status pill** indicating whether YouTube is actively being tracked
-- **Used today / Daily limit** stats
-- A **slider** to adjust the daily limit (changes take effect immediately)
+- **Used today / Daily limit / Carried over** stats
 - The **+5 min grace period** button (enabled only after the limit is reached, one use per day)
-- A **Reset today's timer** button
+
+Set the daily limit in the timer settings and click **Save timer settings** to apply it.
 
 ### Block screen
 
@@ -71,7 +71,7 @@ yt-limiter/
 
 The background service worker registers a Chrome alarm (`yt_tick`) that fires every 10 seconds. On each tick it checks whether a YouTube tab is active and focused. If so, it adds the elapsed delta to a running total stored in `chrome.storage.local`. When the total exceeds the configured limit, it triggers the notification and sets a `limitReached` flag that the content script checks on every page load.
 
-State is keyed by date string (`YYYY-MM-DD`), so elapsed time and the extra-time token reset automatically when the date changes.
+State is keyed by date string (`YYYY-MM-DD`), so elapsed time and the extra-time token reset automatically when the date changes. When rollover is enabled, unused daily allowance is added to the saved-time bank at that point. The daily allowance is consumed first; saved time is only consumed after it.
 
 ---
 

@@ -1,6 +1,8 @@
 // ── constants ────────────────────────────────────────────────────────────────
 const DAILY_LIMIT_MS   = 60 * 60 * 1000;   // 1 hour default (user-configurable)
 const EXTRA_TIME_MS    = 5  * 60 * 1000;   // 5 minutes bonus
+const DEFAULT_ROLLOVER_DAILY_CAP_MS = 30 * 60 * 1000;
+const MAX_ROLLOVER_BANK_MS = 90 * 60 * 1000;
 const TICK_INTERVAL_S  = 10;               // how often we persist elapsed time
 const ALARM_TICK       = 'yt_tick';
 const ALARM_WARN       = 'yt_warn';        // 1-min warning
@@ -12,6 +14,70 @@ function todayKey() {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function clampRolloverBank(value) {
+  return Math.min(MAX_ROLLOVER_BANK_MS, Math.max(0, Number(value) || 0));
+}
+
+function normalizeRolloverDailyCap(value) {
+  const minimum = 5 * 60 * 1000;
+  const numericValue = Number(value);
+  return Math.min(MAX_ROLLOVER_BANK_MS, Math.max(minimum,
+    Number.isFinite(numericValue) ? numericValue : DEFAULT_ROLLOVER_DAILY_CAP_MS));
+}
+
+function dayNumber(dateKey) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey ?? '');
+  if (!match) return null;
+  return Math.floor(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86400000);
+}
+
+function calculateRolloverForNewDay(data, today) {
+  if (!(data.rolloverEnabled ?? false) || !data.date) return 0;
+
+  const limitMs = Number.isFinite(data.limitMs) ? data.limitMs : DAILY_LIMIT_MS;
+  const elapsed = Math.max(0, Number(data.elapsed) || 0);
+  const dailyCap = normalizeRolloverDailyCap(data.rolloverDailyCapMs);
+  const currentBank = clampRolloverBank(data.rolloverBankMs);
+
+  // Today's allowance is always spent first; only usage above it consumes the bank.
+  const bankUsed = Math.min(currentBank, Math.max(0, elapsed - limitMs));
+  const unusedDailyLimit = Math.max(0, limitMs - elapsed);
+  let nextBank = currentBank - bankUsed + Math.min(unusedDailyLimit, dailyCap);
+
+  // Each completely missed day also contributes up to the configured daily cap.
+  const previousDay = dayNumber(data.date);
+  const currentDay = dayNumber(today);
+  const gap = previousDay === null || currentDay === null ? 1 : Math.max(1, currentDay - previousDay);
+  nextBank += Math.max(0, gap - 1) * Math.min(limitMs, dailyCap);
+
+  return clampRolloverBank(nextBank);
+}
+
+function buildState(data, today = todayKey()) {
+  const elapsed = Math.max(0, Number(data.elapsed) || 0);
+  const limitMs = Number.isFinite(data.limitMs) ? data.limitMs : DAILY_LIMIT_MS;
+  const rolloverEnabled = data.rolloverEnabled ?? false;
+  const rolloverBankMs = rolloverEnabled ? clampRolloverBank(data.rolloverBankMs) : 0;
+  const rolloverUsedMs = Math.min(rolloverBankMs, Math.max(0, elapsed - limitMs));
+  const rolloverRemainingMs = rolloverBankMs - rolloverUsedMs;
+  const effectiveLimitMs = limitMs + rolloverBankMs + (data.extraUsed ? EXTRA_TIME_MS : 0);
+
+  return {
+    date: today,
+    elapsed,
+    limitMs,
+    effectiveLimitMs,
+    rolloverEnabled,
+    rolloverDailyCapMs: normalizeRolloverDailyCap(data.rolloverDailyCapMs),
+    rolloverBankMs,
+    rolloverRemainingMs,
+    limitReached: elapsed >= effectiveLimitMs,
+    extraUsed: data.extraUsed ?? false,
+    tracking: data.tracking ?? false,
+    ytTabId: data.ytTabId ?? null
+  };
 }
 
 async function updateHistory(date, elapsed) {
@@ -31,7 +97,8 @@ async function updateHistory(date, elapsed) {
 async function getState() {
   const data = await chrome.storage.local.get([
     'date', 'elapsed', 'limitMs', 'limitReached',
-    'extraUsed', 'tracking', 'ytTabId'
+    'extraUsed', 'tracking', 'ytTabId', 'rolloverEnabled',
+    'rolloverDailyCapMs', 'rolloverBankMs'
   ]);
   const today = todayKey();
   // Reset elapsed if it's a new day
@@ -39,25 +106,21 @@ async function getState() {
     if (data.date && Number.isFinite(data.elapsed)) {
       await updateHistory(data.date, data.elapsed);
     }
-    await chrome.storage.local.set({
+    const rolloverBankMs = calculateRolloverForNewDay(data, today);
+    const nextData = {
+      ...data,
       date: today,
       elapsed: 0,
       limitReached: false,
       extraUsed: false,
-      tracking: false
-    });
-    return { date: today, elapsed: 0, limitMs: data.limitMs ?? DAILY_LIMIT_MS,
-             limitReached: false, extraUsed: false, tracking: false, ytTabId: null };
+      tracking: data.tracking ?? false,
+      ytTabId: data.ytTabId ?? null,
+      rolloverBankMs
+    };
+    await chrome.storage.local.set(nextData);
+    return buildState(nextData, today);
   }
-  return {
-    date:         today,
-    elapsed:      data.elapsed      ?? 0,
-    limitMs:      data.limitMs      ?? DAILY_LIMIT_MS,
-    limitReached: data.limitReached ?? false,
-    extraUsed:    data.extraUsed    ?? false,
-    tracking:     data.tracking     ?? false,
-    ytTabId:      data.ytTabId      ?? null
-  };
+  return buildState(data, today);
 }
 
 async function saveElapsed(elapsed) {
@@ -82,10 +145,10 @@ async function onTick() {
   const newElapsed = state.elapsed + delta;
   await saveElapsed(newElapsed);
 
-  const remaining = state.limitMs - newElapsed;
+  const remaining = state.effectiveLimitMs - newElapsed;
 
   // Broadcast to popup
-  broadcastUpdate(newElapsed, state.limitMs);
+  broadcastUpdate(newElapsed, state.effectiveLimitMs);
 
   if (remaining <= 0) {
     await hitLimit();
@@ -168,9 +231,7 @@ async function grantExtraTime() {
   const state = await getState();
   if (state.extraUsed || !state.limitReached) return { ok: false };
 
-  const newLimit = state.limitMs + EXTRA_TIME_MS;
   await chrome.storage.local.set({
-    limitMs:      newLimit,
     limitReached: false,
     extraUsed:    true,
     tracking:     false
@@ -182,7 +243,7 @@ async function grantExtraTime() {
   const tabs = await chrome.tabs.query({ url: '*://*.youtube.com/*' });
   tabs.forEach(t => chrome.tabs.reload(t.id));
 
-  broadcastUpdate(state.elapsed, newLimit, false);
+  broadcastUpdate(state.elapsed, state.effectiveLimitMs + EXTRA_TIME_MS, false);
   return { ok: true };
 }
 
@@ -222,6 +283,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg.type === 'SET_LIMIT') {
     chrome.storage.local.set({ limitMs: msg.limitMs }).then(() => sendResponse({ ok: true }));
+    return true;
+  }
+  if (msg.type === 'SET_ROLLOVER') {
+    const rolloverEnabled = Boolean(msg.enabled);
+    const rolloverDailyCapMs = normalizeRolloverDailyCap(msg.dailyCapMs);
+    chrome.storage.local.get('rolloverBankMs').then(data => chrome.storage.local.set({
+      rolloverEnabled,
+      rolloverDailyCapMs,
+      rolloverBankMs: rolloverEnabled ? clampRolloverBank(data.rolloverBankMs) : 0
+    })).then(() => sendResponse({ ok: true }));
     return true;
   }
   if (msg.type === 'RESET_DAY') {
@@ -268,8 +339,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 // Bootstrap on install / browser start
 chrome.runtime.onStartup.addListener(() => refreshTracking());
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.storage.local.get('limitMs').then(d => {
-    if (!d.limitMs) chrome.storage.local.set({ limitMs: DAILY_LIMIT_MS });
+  chrome.storage.local.get(['limitMs', 'rolloverDailyCapMs']).then(d => {
+    const defaults = {};
+    if (!d.limitMs) defaults.limitMs = DAILY_LIMIT_MS;
+    if (!d.rolloverDailyCapMs) defaults.rolloverDailyCapMs = DEFAULT_ROLLOVER_DAILY_CAP_MS;
+    if (Object.keys(defaults).length) chrome.storage.local.set(defaults);
   });
   refreshTracking();
 });

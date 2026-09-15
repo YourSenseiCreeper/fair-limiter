@@ -33,10 +33,8 @@ const $statusDot  = document.getElementById('status-dot');
 const $statusText = document.getElementById('status-text');
 const $usedTime   = document.getElementById('used-time');
 const $limitDisp  = document.getElementById('limit-display');
-const $slider     = document.getElementById('limit-slider');
-const $sliderVal  = document.getElementById('limit-slider-val');
+const $rolloverDisp = document.getElementById('rollover-display');
 const $btnExtra   = document.getElementById('btn-extra');
-const $btnReset   = document.getElementById('btn-reset');
 const $dayBadge   = document.getElementById('day-badge');
 
 $dayBadge.textContent = todayStr();
@@ -44,10 +42,11 @@ $dayBadge.textContent = todayStr();
 // ── render ────────────────────────────────────────────────────────────────────
 function render(state) {
   const { elapsed = 0, limitMs = 3600000, limitReached = false,
+          effectiveLimitMs = limitMs, rolloverRemainingMs = 0,
           tracking = false, extraUsed = false } = state;
 
-  const remaining = Math.max(0, limitMs - elapsed);
-  const pct = Math.min(1, elapsed / limitMs);
+  const remaining = Math.max(0, effectiveLimitMs - elapsed);
+  const pct = Math.min(1, elapsed / effectiveLimitMs);
   const offset = CIRCUMFERENCE * (1 - pct);
 
   // Ring
@@ -72,11 +71,7 @@ function render(state) {
   // Stats
   $usedTime.textContent  = fmtUsed(elapsed);
   $limitDisp.textContent = fmtUsed(limitMs);
-
-  // Slider
-  const sliderMin = Math.ceil(limitMs / 60000);
-  $slider.value = sliderMin;
-  $sliderVal.textContent = fmtUsed(limitMs);
+  $rolloverDisp.textContent = fmtUsed(rolloverRemainingMs);
 
   // Extra button
   $btnExtra.disabled = !limitReached || extraUsed;
@@ -95,30 +90,10 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
 });
 
-// ── slider ────────────────────────────────────────────────────────────────────
-let sliderTimer = null;
-$slider.addEventListener('input', () => {
-  const val = parseInt($slider.value, 10);
-  $sliderVal.textContent = fmtUsed(val * 60000);
-  clearTimeout(sliderTimer);
-  sliderTimer = setTimeout(() => {
-    chrome.runtime.sendMessage({ type: 'SET_LIMIT', limitMs: val * 60000 }, () => {
-      chrome.runtime.sendMessage({ type: 'GET_STATE' }, (s) => { if (s) render(s); });
-    });
-  }, 600);
-});
-
 // ── extra button ──────────────────────────────────────────────────────────────
 $btnExtra.addEventListener('click', () => {
   $btnExtra.disabled = true;
   chrome.runtime.sendMessage({ type: 'GRANT_EXTRA' }, () => {
-    chrome.runtime.sendMessage({ type: 'GET_STATE' }, (s) => { if (s) render(s); });
-  });
-});
-
-// ── reset ─────────────────────────────────────────────────────────────────────
-$btnReset.addEventListener('click', () => {
-  chrome.runtime.sendMessage({ type: 'RESET_DAY' }, () => {
     chrome.runtime.sendMessage({ type: 'GET_STATE' }, (s) => { if (s) render(s); });
   });
 });

@@ -23,7 +23,6 @@
 
     body {
       width: 320px;
-      min-height: 400px;
       background: var(--bg);
       color: var(--text);
       font-family: 'DM Sans', sans-serif;
@@ -142,7 +141,7 @@
     /* ── stats row ── */
     .stats {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, 1fr);
       gap: 8px;
       padding: 0 16px;
       margin-bottom: 12px;
@@ -152,7 +151,7 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 12px 14px;
+      padding: 12px 10px;
     }
 
     .stat-val {
@@ -166,56 +165,6 @@
       font-size: .7rem;
       color: var(--muted);
       letter-spacing: .04em;
-    }
-
-    /* ── limit setter ── */
-    .section {
-      padding: 0 16px;
-      margin-bottom: 10px;
-    }
-
-    .section-title {
-      font-size: .7rem;
-      letter-spacing: .07em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 8px;
-    }
-
-    .limit-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px 14px;
-    }
-
-    .limit-row input[type=range] {
-      flex: 1;
-      -webkit-appearance: none;
-      height: 4px;
-      border-radius: 2px;
-      background: rgba(255,255,255,.1);
-      outline: none;
-    }
-
-    .limit-row input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 16px; height: 16px;
-      border-radius: 50%;
-      background: var(--accent);
-      cursor: pointer;
-      box-shadow: 0 0 0 3px rgba(255,74,43,.25);
-    }
-
-    .limit-val {
-      font-size: .85rem;
-      font-weight: 500;
-      min-width: 40px;
-      text-align: right;
-      color: var(--accent2);
     }
 
     /* ── action buttons ── */
@@ -250,16 +199,6 @@
 
     .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,74,43,.4); }
     .btn-primary:disabled { opacity: .35; cursor: not-allowed; transform: none; box-shadow: none; }
-
-    .btn-ghost {
-      background: rgba(255,255,255,.04);
-      color: var(--muted);
-      border: 1px solid var(--border);
-    }
-
-    .btn-ghost:hover { background: rgba(255,255,255,.08); color: var(--text); }
-
-    .divider { height: 1px; background: var(--border); margin: 4px 0; }
   </style>
 </head>
 <body>
@@ -312,20 +251,14 @@
       <div class="stat-val" id="limit-display">60m</div>
       <div class="stat-lbl">Daily limit</div>
     </div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Set daily limit</div>
-    <div class="limit-row">
-      <input type="range" id="limit-slider" min="5" max="240" step="5" value="60">
-      <span class="limit-val" id="limit-slider-val">60m</span>
+    <div class="stat-card">
+      <div class="stat-val" id="rollover-display">0m</div>
+      <div class="stat-lbl">Carried over</div>
     </div>
   </div>
 
   <div class="actions">
     <button class="btn btn-primary" id="btn-extra" disabled>⏱ +5 min grace period</button>
-    <div class="divider"></div>
-    <button class="btn btn-ghost" id="btn-reset">↺ Reset today's timer</button>
   </div>
 
   <script src="popup.js"></script>
