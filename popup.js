@@ -31,6 +31,23 @@ const $usedTime   = document.getElementById('used-time');
 const $limitDisp  = document.getElementById('limit-display');
 const $rolloverDisp = document.getElementById('rollover-display');
 const $btnExtra   = document.getElementById('btn-extra');
+const $graceActions = document.getElementById('grace-actions');
+
+function setGraceVisibility(enabled) {
+  $graceActions.hidden = !enabled;
+}
+
+let graceChangedAfterOpen = false;
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.timerGrace) {
+    graceChangedAfterOpen = true;
+    setGraceVisibility(changes.timerGrace.newValue ?? true);
+  }
+});
+
+chrome.storage.local.get('timerGrace', data => {
+  if (!graceChangedAfterOpen) setGraceVisibility(data.timerGrace ?? true);
+});
 
 // ── render ────────────────────────────────────────────────────────────────────
 function render(state) {

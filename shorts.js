@@ -22,7 +22,7 @@
       getShortsSettings().then(s => {
         settings = s;
         applyHiding();
-        if (s.blockPlayback && isShortsUrl()) redirectFromShorts();
+        handlePlaybackBlock();
       });
     }
   });
@@ -30,19 +30,6 @@
   // ── helpers ────────────────────────────────────────────────────────────────
   function isShortsUrl() {
     return location.pathname.startsWith('/shorts');
-  }
-
-  // ── redirect Shorts playback ───────────────────────────────────────────────
-  function redirectFromShorts() {
-    if (!isShortsUrl()) return;
-
-    // Extract video ID from /shorts/<id>
-    const videoId = location.pathname.split('/shorts/')[1]?.split('?')[0];
-    if (videoId) {
-      // Redirect to regular watch page – user can still watch, just not as Shorts
-      // Actually we want to BLOCK entirely, so show a block overlay
-    }
-    showShortsBlockOverlay();
   }
 
   function showShortsBlockOverlay() {

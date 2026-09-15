@@ -171,6 +171,7 @@
       flex-direction: column;
       gap: 8px;
     }
+    .actions[hidden] { display: none; }
 
     .btn {
       width: 100%;
@@ -253,7 +254,7 @@
     </div>
   </div>
 
-  <div class="actions">
+  <div class="actions" id="grace-actions" hidden>
     <button class="btn btn-primary" id="btn-extra" disabled>⏱ +5 min grace period</button>
   </div>
 

@@ -1,58 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
-const vm = require('node:vm');
-
-const backgroundSource = fs.readFileSync(path.join(__dirname, '..', 'background.js'), 'utf8');
+const { createBackgroundWorker } = require('./helpers/background-worker');
 const minute = 60_000;
 
-function createWorker(store = {}) {
-  const notifications = [];
-  const event = { addListener() {} };
-  const chrome = {
-    storage: {
-      local: {
-        async get(keys) {
-          const result = {};
-          for (const key of Array.isArray(keys) ? keys : [keys]) result[key] = store[key];
-          return result;
-        },
-        async set(values) { Object.assign(store, values); }
-      }
-    },
-    alarms: { get: async () => null, create() {}, clear() {}, onAlarm: event },
-    notifications: {
-      async create(id, details) { notifications.push({ id, ...details }); return id; },
-      onClosed: event,
-      onButtonClicked: event
-    },
-    runtime: {
-      sendMessage: async () => {},
-      onMessage: event,
-      onStartup: event,
-      onInstalled: event
-    },
-    tabs: { query: async () => [], onActivated: event, onUpdated: event },
-    windows: { onFocusChanged: event }
-  };
-  const context = vm.createContext({ chrome });
-  vm.runInContext(backgroundSource, context);
-  store.date = vm.runInContext('todayKey()', context);
-
-  return {
-    store,
-    notifications,
-    async tickAt(elapsed) {
-      store.elapsed = elapsed - 10_000;
-      vm.runInContext('lastTickTime = null', context);
-      await vm.runInContext('onTick()', context);
-    }
-  };
-}
-
 test('warns once before the daily limit and once before carried-over time ends', async () => {
-  const worker = createWorker({
+  const worker = createBackgroundWorker({
     tracking: true,
     limitMs: 60 * minute,
     rolloverEnabled: true,
@@ -76,7 +28,7 @@ test('warns once before the daily limit and once before carried-over time ends',
 });
 
 test('warns at the start of a short carried-over allowance', async () => {
-  const worker = createWorker({
+  const worker = createBackgroundWorker({
     tracking: true,
     limitMs: 60 * minute,
     rolloverEnabled: true,
@@ -91,7 +43,7 @@ test('warns at the start of a short carried-over allowance', async () => {
 });
 
 test('respects the warning toggle and does not add a rollover warning without rollover', async () => {
-  const disabled = createWorker({
+  const disabled = createBackgroundWorker({
     tracking: true,
     limitMs: 60 * minute,
     rolloverEnabled: true,
@@ -103,7 +55,7 @@ test('respects the warning toggle and does not add a rollover warning without ro
   await disabled.tickAt(80 * minute);
   assert.equal(disabled.notifications.length, 0);
 
-  const noRollover = createWorker({ tracking: true, limitMs: 60 * minute });
+  const noRollover = createBackgroundWorker({ tracking: true, limitMs: 60 * minute });
   await noRollover.tickAt(58 * minute);
   assert.equal(noRollover.notifications.length, 0);
   await noRollover.tickAt(59 * minute);
@@ -119,11 +71,11 @@ test('does not repeat a warning after the service worker restarts', async () => 
     rolloverBankMs: 30 * minute,
     timerWarnMinutes: 10
   };
-  const first = createWorker(store);
+  const first = createBackgroundWorker(store);
   await first.tickAt(50 * minute);
   assert.equal(first.notifications.length, 1);
 
-  const restarted = createWorker(store);
+  const restarted = createBackgroundWorker(store);
   await restarted.tickAt(51 * minute);
   assert.equal(restarted.notifications.length, 0);
   await restarted.tickAt(80 * minute);

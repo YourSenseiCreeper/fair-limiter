@@ -29,6 +29,12 @@ No build step required — this is a plain Manifest V3 extension.
 
 ---
 
+## Tests
+
+Run `node --test` from the repository root. The tests use Node's built-in test runner and controlled Chrome API and DOM substitutes, so Chrome is not required.
+
+---
+
 ## Usage
 
 ### Popup
@@ -38,7 +44,7 @@ Click the toolbar icon to open the popup. It shows:
 - A **ring timer** displaying time remaining and a visual fill that drains as you watch
 - A **status pill** indicating whether YouTube is actively being tracked
 - **Used today / Daily limit / Carried over** stats
-- The **+5 min grace period** button (enabled only after the limit is reached, one use per day)
+- The **+5 min grace period** button (shown when allowed in timer settings, enabled after the limit is reached, one use per day)
 
 Set the daily limit in the timer settings and click **Save timer settings** to apply it.
 There you can also enable time remaining warnings and choose how many minutes before each allowance ends they appear.
