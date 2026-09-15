@@ -1,118 +1,34 @@
-// popup.js
+// Composition root for popup state and extension actions.
+const popupView = YtLimiterPopupView.createPopupView(document, YtLimiterFormat);
 
-const CIRCUMFERENCE = 2 * Math.PI * 56; // r=56
-
-function fmtTime(ms) {
-  if (ms <= 0) return '0:00';
-  const totalSec = Math.floor(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  return `${m}:${String(s).padStart(2,'0')}`;
-}
-
-function fmtUsed(ms) {
-  const totalMin = Math.round(ms / 60000);
-  if (totalMin < 60) return `${totalMin}m`;
-  const h = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
-}
-
-// ── DOM refs ─────────────────────────────────────────────────────────────────
-const $ring       = document.getElementById('ring-fill');
-const $timeLeft   = document.getElementById('time-left');
-const $ringLabel  = document.getElementById('ring-label');
-const $statusPill = document.getElementById('status-pill');
-const $statusDot  = document.getElementById('status-dot');
-const $statusText = document.getElementById('status-text');
-const $usedTime   = document.getElementById('used-time');
-const $limitDisp  = document.getElementById('limit-display');
-const $rolloverDisp = document.getElementById('rollover-display');
-const $btnExtra   = document.getElementById('btn-extra');
-const $graceActions = document.getElementById('grace-actions');
-
-function setGraceVisibility(enabled) {
-  $graceActions.hidden = !enabled;
+function loadState() {
+  chrome.runtime.sendMessage({ type: 'GET_STATE' }, state => {
+    if (state) popupView.render(state);
+  });
 }
 
 let graceChangedAfterOpen = false;
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.timerGrace) {
-    graceChangedAfterOpen = true;
-    setGraceVisibility(changes.timerGrace.newValue ?? true);
-  }
+  if (area !== 'local' || !changes.timerGrace) return;
+  graceChangedAfterOpen = true;
+  popupView.showGrace(changes.timerGrace.newValue ?? true);
 });
-
 chrome.storage.local.get('timerGrace', data => {
-  if (!graceChangedAfterOpen) setGraceVisibility(data.timerGrace ?? true);
+  if (!graceChangedAfterOpen) popupView.showGrace(data.timerGrace ?? true);
 });
 
-// ── render ────────────────────────────────────────────────────────────────────
-function render(state) {
-  const { elapsed = 0, limitMs = 3600000, limitReached = false,
-          effectiveLimitMs = limitMs, rolloverRemainingMs = 0,
-          tracking = false, extraUsed = false } = state;
-
-  const remaining = Math.max(0, effectiveLimitMs - elapsed);
-  const pct = Math.min(1, elapsed / effectiveLimitMs);
-  const offset = CIRCUMFERENCE * (1 - pct);
-
-  // Ring
-  $ring.style.strokeDashoffset = offset;
-  $ring.classList.toggle('warn',  !limitReached && remaining < 120_000);
-  $ring.classList.toggle('done',  limitReached);
-
-  // Center text
-  if (limitReached) {
-    $timeLeft.textContent = '✕';
-    $ringLabel.textContent = 'limit reached';
-  } else {
-    $timeLeft.textContent = fmtTime(remaining);
-    $ringLabel.textContent = 'remaining';
-  }
-
-  // Status pill
-  $statusPill.className = 'status-pill ' + (limitReached ? 'limited' : tracking ? 'active' : 'idle');
-  $statusDot.className  = 'dot ' + (tracking && !limitReached ? 'pulse' : '');
-  $statusText.textContent = limitReached ? 'Limit reached' : tracking ? 'Watching now' : 'Not active';
-
-  // Stats
-  $usedTime.textContent  = fmtUsed(elapsed);
-  $limitDisp.textContent = fmtUsed(limitMs);
-  $rolloverDisp.textContent = fmtUsed(rolloverRemainingMs);
-
-  // Extra button
-  $btnExtra.disabled = !limitReached || extraUsed;
-  $btnExtra.textContent = extraUsed ? '✓ Extra time used' : '⏱ +5 min grace period';
-}
-
-// ── load state ────────────────────────────────────────────────────────────────
-chrome.runtime.sendMessage({ type: 'GET_STATE' }, (state) => {
-  if (state) render(state);
+loadState();
+chrome.runtime.onMessage.addListener(message => {
+  if (message.type === 'STATE_UPDATE') loadState();
 });
 
-// ── listen for live updates ───────────────────────────────────────────────────
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'STATE_UPDATE') {
-    chrome.runtime.sendMessage({ type: 'GET_STATE' }, (s) => { if (s) render(s); });
-  }
+popupView.graceButton.addEventListener('click', () => {
+  popupView.graceButton.disabled = true;
+  chrome.runtime.sendMessage({ type: 'GRANT_EXTRA' }, loadState);
 });
-
-// ── extra button ──────────────────────────────────────────────────────────────
-$btnExtra.addEventListener('click', () => {
-  $btnExtra.disabled = true;
-  chrome.runtime.sendMessage({ type: 'GRANT_EXTRA' }, () => {
-    chrome.runtime.sendMessage({ type: 'GET_STATE' }, (s) => { if (s) render(s); });
-  });
-});
-
-// ── settings ──────────────────────────────────────────────────────────────────
 document.getElementById('btn-settings').addEventListener('click', () => {
   chrome.runtime.openOptionsPage();
 });
-
 document.getElementById('btn-history').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('options.html#history') });
 });

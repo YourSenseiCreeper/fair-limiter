@@ -63,20 +63,32 @@ Once per day, you can grant yourself an extra 5 minutes. This can be triggered f
 
 ```
 yt-limiter/
-├── manifest.json    # Extension manifest (Manifest V3)
-├── background.js    # Service worker: timer logic, alarms, notifications, state
-├── content.js       # Injected into youtube.com: renders the block screen
-├── popup.html       # Popup markup
-├── popup.js         # Popup UI logic
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
+├── manifest.json       # Extension manifest (Manifest V3)
+├── background.js       # Wires services to Chrome events and messages
+├── lib/
+│   ├── time-domain.js  # Pure timer, rollover, and warning rules
+│   ├── background-services.js # Storage, notifications, and timer coordination
+│   ├── history-domain.js # Pure history date ranges
+│   ├── history-view.js   # History chart controller
+│   ├── timer-settings-controller.js # Timer settings
+│   ├── shorts-settings-controller.js # Shorts settings
+│   ├── popup-view.js   # Popup rendering
+│   └── ui-format.js    # Shared time formatting
+├── content.js          # YouTube limit block screen
+├── shorts.js           # Shorts page controls
+├── options.html        # Settings page markup
+├── options.js          # Settings page wiring
+├── popup.html          # Popup markup
+├── popup.js            # Popup wiring
+├── tests/              # Unit tests with controlled browser substitutes
+└── icons/              # Extension icons
 ```
 
 ### How the timer works
 
-The background service worker registers a Chrome alarm (`yt_tick`) that fires every 10 seconds. On each tick it checks whether a YouTube tab is active and focused. If so, it adds the elapsed delta to a running total stored in `chrome.storage.local`. When the total exceeds the configured limit, it triggers the notification and sets a `limitReached` flag that the content script checks on every page load.
+The background service worker registers a Chrome alarm (`yt_tick`) that fires every 10 seconds. `background.js` connects the timer, state, history, and notification services to Chrome events. The pure rules in `lib/time-domain.js` calculate limits and rollover without using browser APIs. Services receive only the storage, tab, alarm, notification, and clock capabilities they need.
+
+On each tick the timer checks whether a YouTube tab is active. If so, it saves the elapsed time in `chrome.storage.local`. When the total exceeds the configured limit, it triggers the notification and sets a `limitReached` flag that the content script checks on every page load.
 
 State is keyed by date string (`YYYY-MM-DD`), so elapsed time and the extra-time token reset automatically when the date changes. When rollover is enabled, unused daily allowance is added to the saved-time bank at that point. The daily allowance is consumed first; saved time is only consumed after it.
 

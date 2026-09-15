@@ -6,6 +6,8 @@ const vm = require('node:vm');
 const { FakeDocument } = require('./helpers/fake-dom');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'popup.js'), 'utf8');
+const formatSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'ui-format.js'), 'utf8');
+const viewSource = fs.readFileSync(path.join(__dirname, '..', 'lib', 'popup-view.js'), 'utf8');
 const minute = 60_000;
 
 function createPopup({ timerGrace, state = {}, deferStorageRead = false } = {}) {
@@ -41,6 +43,8 @@ function createPopup({ timerGrace, state = {}, deferStorageRead = false } = {}) 
     tabs: { create(details) { createdTabs.push(details); } }
   };
   const context = vm.createContext({ document, chrome });
+  vm.runInContext(formatSource, context);
+  vm.runInContext(viewSource, context);
   vm.runInContext(source, context);
   return {
     context,

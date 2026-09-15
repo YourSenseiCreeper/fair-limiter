@@ -2,7 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const source = fs.readFileSync(path.join(__dirname, '..', '..', 'background.js'), 'utf8');
+const repositoryRoot = path.join(__dirname, '..', '..');
+const source = fs.readFileSync(path.join(repositoryRoot, 'background.js'), 'utf8');
 
 function createEvent() {
   const listeners = [];
@@ -87,8 +88,20 @@ function createBackgroundWorker(store = {}, options = {}) {
   };
 
   const context = vm.createContext({ chrome, Date: WorkerDate });
+  context.importScripts = (...files) => {
+    for (const file of files) {
+      vm.runInContext(fs.readFileSync(path.join(repositoryRoot, file), 'utf8'), context);
+    }
+  };
   vm.runInContext(source, context);
-  if (!('date' in store)) store.date = vm.runInContext('todayKey()', context);
+  if (!('date' in store)) store.date = vm.runInContext('YtLimiterTime.todayKey(new Date())', context);
+  const testedServices = {
+    getState: 'stateRepository.getState',
+    buildState: 'time.buildState',
+    onTick: 'timer.onTick',
+    refreshTracking: 'timer.refreshTracking',
+    grantExtraTime: 'timer.grantExtraTime'
+  };
 
   return {
     store,
@@ -98,18 +111,20 @@ function createBackgroundWorker(store = {}, options = {}) {
     removedTabs,
     alarms,
     events,
-    call(name, ...args) { return vm.runInContext(name, context)(...args); },
+    call(name, ...args) { return vm.runInContext(testedServices[name] ?? name, context)(...args); },
     setNow(value) { now = value instanceof Date ? value.getTime() : value; },
     setLastTickAge(milliseconds) {
-      context.tickAge = milliseconds;
-      vm.runInContext('lastTickTime = Date.now() - tickAge', context);
+      const current = now;
+      now -= milliseconds;
+      vm.runInContext('tickClock.start()', context);
+      now = current;
     },
     setActiveTabs(tabs) { activeTabs = tabs; },
     setYoutubeTabs(tabs) { youtubeTabs = tabs; },
     async tickAt(elapsed) {
       store.elapsed = elapsed - 10_000;
-      vm.runInContext('lastTickTime = null', context);
-      await vm.runInContext('onTick()', context);
+      vm.runInContext('tickClock.reset()', context);
+      await vm.runInContext('timer.onTick()', context);
     },
     request(message) {
       return new Promise(resolve => {

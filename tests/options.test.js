@@ -6,6 +6,11 @@ const vm = require('node:vm');
 const { FakeDocument } = require('./helpers/fake-dom');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'options.js'), 'utf8');
+const sharedSources = [
+  'ui-format.js', 'history-domain.js', 'history-view.js',
+  'timer-settings-controller.js', 'shorts-settings-controller.js'
+]
+  .map(file => fs.readFileSync(path.join(__dirname, '..', 'lib', file), 'utf8'));
 const minute = 60_000;
 
 function createOptionsPage({ now = new Date(2026, 8, 15, 12), store = {}, state = {}, shorts = {}, watchHistory = {} } = {}) {
@@ -49,13 +54,14 @@ function createOptionsPage({ now = new Date(2026, 8, 15, 12), store = {}, state 
   };
 
   const context = vm.createContext({ document, chrome, Date: PageDate, location: { hash: '' }, history: { replaceState() {} }, setTimeout() {} });
+  sharedSources.forEach(sharedSource => vm.runInContext(sharedSource, context));
   vm.runInContext(source, context);
   return { context, document, sent, store, rangeButtons };
 }
 
 test('long history range covers exactly the current month and seven prior months', () => {
   const page = createOptionsPage();
-  const days = vm.runInContext('getHistoryDays("year")', page.context);
+  const days = vm.runInContext('YtLimiterHistory.days("year", new Date())', page.context);
   const monthKeys = new Set(days.map(day => `${day.getFullYear()}-${day.getMonth()}`));
   assert.equal(monthKeys.size, 8);
   assert.equal(days[0].getFullYear(), 2026);
@@ -63,13 +69,13 @@ test('long history range covers exactly the current month and seven prior months
   assert.equal(days[0].getDate(), 1);
   assert.equal(days.at(-1).getMonth(), 8);
   assert.equal(days.at(-1).getDate(), 15);
-  assert.equal(vm.runInContext('getHistoryDays("week")', page.context).length, 7);
-  assert.equal(vm.runInContext('getHistoryDays("month")', page.context).length, 30);
+  assert.equal(vm.runInContext('YtLimiterHistory.days("week", new Date())', page.context).length, 7);
+  assert.equal(vm.runInContext('YtLimiterHistory.days("month", new Date())', page.context).length, 30);
 });
 
 test('long history range remains eight calendar months across New Year', () => {
   const page = createOptionsPage({ now: new Date(2027, 0, 31, 12) });
-  const days = vm.runInContext('getHistoryDays("year")', page.context);
+  const days = vm.runInContext('YtLimiterHistory.days("year", new Date())', page.context);
   const monthKeys = new Set(days.map(day => `${day.getFullYear()}-${day.getMonth()}`));
   assert.equal(monthKeys.size, 8);
   assert.equal(days[0].getFullYear(), 2026);
