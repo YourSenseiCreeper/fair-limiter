@@ -434,11 +434,11 @@
     .chart.month { padding-top:20px; }
     .year-chart { padding:22px 20px 18px; border-bottom:1px solid var(--border); }
     .heatmap-scroll { overflow-x:auto; padding-bottom:5px; }
-    .heatmap-content { min-width:max-content; }
+    .heatmap-content { min-width:max-content; --heatmap-cell-size:10px; --heatmap-cell-gap:3px; }
     .heatmap-months {
       display:grid;
-      grid-template-columns:repeat(var(--week-count), 10px);
-      gap:3px;
+      grid-template-columns:repeat(var(--week-count), var(--heatmap-cell-size));
+      gap:var(--heatmap-cell-gap);
       height:20px;
       margin-left:30px;
       color:var(--muted);
@@ -449,22 +449,22 @@
     .heatmap-body { display:flex; align-items:flex-start; gap:8px; }
     .heatmap-weekdays {
       display:grid;
-      grid-template-rows:repeat(7, 10px);
-      gap:3px;
+      grid-template-rows:repeat(7, var(--heatmap-cell-size));
+      gap:var(--heatmap-cell-gap);
       width:22px;
       color:var(--muted);
       font-size:.58rem;
-      line-height:10px;
+      line-height:var(--heatmap-cell-size);
     }
     .heatmap-grid {
       display:grid;
-      grid-template-columns:repeat(var(--week-count), 10px);
-      grid-template-rows:repeat(7, 10px);
+      grid-template-columns:repeat(var(--week-count), var(--heatmap-cell-size));
+      grid-template-rows:repeat(7, var(--heatmap-cell-size));
       grid-auto-flow:column;
-      gap:3px;
+      gap:var(--heatmap-cell-gap);
     }
     .heatmap-cell {
-      width:10px; height:10px;
+      width:var(--heatmap-cell-size, 10px); height:var(--heatmap-cell-size, 10px);
       border:1px solid rgba(255,255,255,.035);
       border-radius:2px;
       background:rgba(255,255,255,.045);
@@ -484,6 +484,17 @@
       font-size:.62rem;
     }
     .heatmap-legend .heatmap-cell { display:inline-block; flex:0 0 10px; }
+    @media (max-width:560px) {
+      .heatmap-content { --heatmap-cell-size:8px; --heatmap-cell-gap:2px; }
+    }
+    @media (max-width:460px) {
+      .heatmap-content { --heatmap-cell-size:6px; }
+      .heatmap-weekdays { display:none; }
+      .heatmap-months { margin-left:0; }
+    }
+    @media (max-width:380px) {
+      .heatmap-content { --heatmap-cell-size:5px; --heatmap-cell-gap:1px; }
+    }
     .history-summary { display:grid; grid-template-columns:repeat(3,1fr); }
     .summary-item { padding:16px 20px; border-right:1px solid var(--border); }
     .summary-item:last-child { border-right:0; }
@@ -655,7 +666,7 @@
         <div class="range-switch" role="group" aria-label="History range">
           <button class="range-btn active" data-range="week">Week</button>
           <button class="range-btn" data-range="month">Month</button>
-          <button class="range-btn" data-range="year">Year</button>
+          <button class="range-btn" data-range="year">8 months</button>
         </div>
       </div>
       <div class="chart" id="history-chart" aria-label="Daily watch time bar chart"></div>

@@ -56,8 +56,17 @@ function localDateKey(date) {
 }
 
 function getHistoryDays(range) {
-  const count = range === 'year' ? 365 : range === 'month' ? 30 : 7;
   const today = new Date();
+  if (range === 'year') {
+    const days = [];
+    const firstDay = new Date(today.getFullYear(), today.getMonth() - 7, 1);
+    for (const date = firstDay; date <= today; date.setDate(date.getDate() + 1)) {
+      days.push(new Date(date));
+    }
+    return days;
+  }
+
+  const count = range === 'month' ? 30 : 7;
   return Array.from({ length: count }, (_, index) => {
     const date = new Date(today);
     date.setDate(today.getDate() - (count - 1 - index));
@@ -67,7 +76,7 @@ function getHistoryDays(range) {
 
 function renderYearHistory(chart, days, values) {
   chart.className = 'year-chart';
-  chart.setAttribute('aria-label', 'YouTube watch time for the last 365 days');
+  chart.setAttribute('aria-label', 'YouTube watch time for the last 8 months');
 
   const startOffset = (days[0].getDay() + 6) % 7;
   const weekCount = Math.ceil((startOffset + days.length) / 7);
@@ -105,7 +114,7 @@ function renderYearHistory(chart, days, values) {
   const grid = document.createElement('div');
   grid.className = 'heatmap-grid';
   grid.setAttribute('role', 'grid');
-  grid.setAttribute('aria-label', 'YouTube watch time for the last 365 days');
+  grid.setAttribute('aria-label', 'YouTube watch time for the last 8 months');
   const todayKey = localDateKey(new Date());
   days.forEach((date, index) => {
     const value = values[index];
@@ -187,7 +196,7 @@ function renderHistory(history) {
 
   document.getElementById('history-total').textContent = fmtUsed(total);
   document.getElementById('history-period').textContent = historyRange === 'year'
-    ? 'Last 365 days'
+    ? 'Last 8 months'
     : historyRange === 'week' ? 'Last 7 days' : 'Last 30 days';
   document.getElementById('history-average').textContent = fmtUsed(total / days.length);
   document.getElementById('history-longest').textContent = fmtUsed(Math.max(...values));
