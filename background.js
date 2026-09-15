@@ -5,7 +5,6 @@ const DEFAULT_ROLLOVER_DAILY_CAP_MS = 30 * 60 * 1000;
 const MAX_ROLLOVER_BANK_MS = 90 * 60 * 1000;
 const TICK_INTERVAL_S  = 10;               // how often we persist elapsed time
 const ALARM_TICK       = 'yt_tick';
-const ALARM_WARN       = 'yt_warn';        // 1-min warning
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function todayKey() {
@@ -25,6 +24,11 @@ function normalizeRolloverDailyCap(value) {
   const numericValue = Number(value);
   return Math.min(MAX_ROLLOVER_BANK_MS, Math.max(minimum,
     Number.isFinite(numericValue) ? numericValue : DEFAULT_ROLLOVER_DAILY_CAP_MS));
+}
+
+function normalizeWarningMinutes(value) {
+  const minutes = Number(value);
+  return Number.isFinite(minutes) ? Math.min(15, Math.max(1, Math.round(minutes))) : 1;
 }
 
 function dayNumber(dateKey) {
@@ -150,28 +154,46 @@ async function onTick() {
   // Broadcast to popup
   broadcastUpdate(newElapsed, state.effectiveLimitMs);
 
-  if (remaining <= 0) {
-    await hitLimit();
-  } else if (remaining <= 60_000) {
-    // 1 min warning notification
-    await scheduleWarnIfNeeded();
-  }
+  if (remaining <= 0) await hitLimit();
+  else await sendWarningsIfNeeded(state, newElapsed);
 }
 
-async function scheduleWarnIfNeeded() {
-  const data = await chrome.storage.local.get(['timerWarn', ALARM_WARN]);
-  const shouldWarn = data.timerWarn ?? true;
-  if (!shouldWarn) return;
-  const existing = await chrome.alarms.get(ALARM_WARN);
-  if (!existing) {
-    chrome.notifications.create('yt_warn_notif', {
-      type:    'basic',
-      iconUrl: 'icons/icon128.png',
-      title:   '⏰ YouTube – 1 minute left',
-      message: 'You have about 1 minute of YouTube time remaining today.',
-      priority: 1
-    });
+async function sendWarningsIfNeeded(state, elapsed) {
+  const data = await chrome.storage.local.get([
+    'timerWarn', 'timerWarnMinutes', 'baseWarningDate', 'rolloverWarningDate'
+  ]);
+  if (!(data.timerWarn ?? true)) return;
+
+  const warningMs = normalizeWarningMinutes(data.timerWarnMinutes) * 60_000;
+  let stage;
+  let remainingMs;
+  let sentKey;
+
+  if (elapsed < state.limitMs) {
+    stage = 'daily limit';
+    remainingMs = state.limitMs - elapsed;
+    sentKey = 'baseWarningDate';
+  } else if (state.rolloverBankMs > 0 && elapsed < state.limitMs + state.rolloverBankMs) {
+    stage = 'carried-over time';
+    remainingMs = state.limitMs + state.rolloverBankMs - elapsed;
+    sentKey = 'rolloverWarningDate';
+  } else {
+    return;
   }
+
+  if (remainingMs > warningMs || data[sentKey] === state.date) return;
+
+  const minutesLeft = Math.ceil(remainingMs / 60_000);
+  await chrome.storage.local.set({ [sentKey]: state.date });
+  await chrome.notifications.create(`yt_warn_${sentKey}_${state.date}`, {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: `⏰ YouTube – ${minutesLeft} ${minutesLeft === 1 ? 'minute' : 'minutes'} of ${stage} left`,
+    message: stage === 'daily limit'
+      ? 'Your daily allowance is nearly used up. Carried-over time will start next if available.'
+      : 'Your carried-over YouTube time is nearly used up.',
+    priority: 1
+  });
 }
 
 async function hitLimit() {
@@ -301,7 +323,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       const watchHistory = data.watchHistory ?? {};
       watchHistory[date] = 0;
       return chrome.storage.local.set({
-        date, elapsed: 0, limitReached: false, extraUsed: false, tracking: false, watchHistory
+        date, elapsed: 0, limitReached: false, extraUsed: false, tracking: false,
+        baseWarningDate: null, rolloverWarningDate: null, watchHistory
       });
     }).then(() => {
       broadcastUpdate(0, null, false);

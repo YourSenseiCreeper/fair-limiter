@@ -578,15 +578,28 @@
       <div class="card-row">
         <div class="card-row-icon icon-amber">⏰</div>
         <div class="card-row-body">
-          <div class="card-row-label">1-minute warning</div>
-          <div class="card-row-desc">Show a notification when less than one minute remains.</div>
+          <div class="card-row-label">Time remaining warnings</div>
+          <div class="card-row-desc">Notify before the daily limit ends and again before carried-over time runs out.</div>
         </div>
         <div class="card-row-ctrl">
           <label class="toggle red">
-            <input type="checkbox" id="toggle-warn" checked>
+            <input type="checkbox" id="toggle-warn" aria-controls="warning-minutes-wrap" checked>
             <div class="toggle-track"></div>
             <div class="toggle-thumb"></div>
           </label>
+        </div>
+      </div>
+      <div class="slider-wrap divided" id="warning-minutes-wrap">
+        <div class="slider-top">
+          <label class="slider-label" for="warning-minutes-slider">Notify before time runs out</label>
+          <span class="slider-val-badge" id="warning-minutes-badge">1m</span>
+        </div>
+        <input type="range" class="styled" id="warning-minutes-slider" min="1" max="15" step="1" value="1">
+        <div class="slider-marks">
+          <span>1m</span>
+          <span>5m</span>
+          <span>10m</span>
+          <span>15m</span>
         </div>
       </div>
       <div class="card-row">

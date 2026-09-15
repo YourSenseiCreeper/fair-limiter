@@ -213,6 +213,9 @@ if (initialTab) selectTab(initialTab);
 const $timerSlider  = document.getElementById('timer-slider');
 const $timerBadge   = document.getElementById('timer-val-badge');
 const $toggleWarn   = document.getElementById('toggle-warn');
+const $warningSlider = document.getElementById('warning-minutes-slider');
+const $warningBadge = document.getElementById('warning-minutes-badge');
+const $warningWrap = document.getElementById('warning-minutes-wrap');
 const $toggleClose  = document.getElementById('toggle-close-tab');
 const $toggleGrace  = document.getElementById('toggle-grace');
 const $toggleRollover = document.getElementById('toggle-rollover');
@@ -228,7 +231,13 @@ function updateRolloverControls() {
   $rolloverCapWrap.classList.toggle('disabled', !enabled);
 }
 
+function updateWarningControls() {
+  $warningSlider.disabled = !$toggleWarn.checked;
+  $warningWrap.classList.toggle('disabled', !$toggleWarn.checked);
+}
+
 updateRolloverControls();
+updateWarningControls();
 
 // Load timer state
 chrome.runtime.sendMessage({ type: 'GET_STATE' }, state => {
@@ -245,10 +254,15 @@ chrome.runtime.sendMessage({ type: 'GET_STATE' }, state => {
 });
 
 // Load timer toggles from storage
-chrome.storage.local.get(['timerWarn', 'timerCloseTab', 'timerGrace'], data => {
+chrome.storage.local.get(['timerWarn', 'timerWarnMinutes', 'timerCloseTab', 'timerGrace'], data => {
   $toggleWarn.checked  = data.timerWarn     ?? true;
+  const warningMinutes = Number(data.timerWarnMinutes);
+  $warningSlider.value = Number.isFinite(warningMinutes)
+    ? Math.min(15, Math.max(1, Math.round(warningMinutes))) : 1;
+  $warningBadge.textContent = `${$warningSlider.value}m`;
   $toggleClose.checked = data.timerCloseTab ?? true;
   $toggleGrace.checked = data.timerGrace    ?? true;
+  updateWarningControls();
 });
 
 $timerSlider.addEventListener('input', () => {
@@ -256,6 +270,11 @@ $timerSlider.addEventListener('input', () => {
 });
 
 $toggleRollover.addEventListener('change', updateRolloverControls);
+$toggleWarn.addEventListener('change', updateWarningControls);
+
+$warningSlider.addEventListener('input', () => {
+  $warningBadge.textContent = `${$warningSlider.value}m`;
+});
 
 $rolloverCapSlider.addEventListener('input', () => {
   $rolloverCapBadge.textContent = fmtUsed($rolloverCapSlider.value * 60000);
@@ -271,6 +290,7 @@ $saveTimer.addEventListener('click', () => {
       dailyCapMs: parseInt($rolloverCapSlider.value, 10) * 60000
     }, () => chrome.storage.local.set({
       timerWarn:     $toggleWarn.checked,
+      timerWarnMinutes: parseInt($warningSlider.value, 10),
       timerCloseTab: $toggleClose.checked,
       timerGrace:    $toggleGrace.checked,
     }, () => showToast('✓ Timer settings saved')));

@@ -8,7 +8,7 @@ A Chrome extension that enforces a daily time limit on YouTube, with a one-time 
 
 - **Daily time limit** — configurable from 5 minutes to 4 hours in the timer settings (default: 1 hour)
 - **Active-tab tracking only** — the timer runs only when a YouTube tab is focused; switching away pauses it
-- **1-minute warning** — a system notification fires when you have under a minute left
+- **Configurable warnings** — choose 1 to 15 minutes before the daily limit ends; if carried-over time is available, receive another warning before it runs out
 - **Limit notification** — when time runs out, a persistent notification appears; dismissing it closes all YouTube tabs
 - **Block screen** — navigating to YouTube after the limit replaces the page content with a styled "time's up" screen
 - **+5 min grace period** — a one-time daily extension, available from both the popup and the block screen
@@ -41,6 +41,7 @@ Click the toolbar icon to open the popup. It shows:
 - The **+5 min grace period** button (enabled only after the limit is reached, one use per day)
 
 Set the daily limit in the timer settings and click **Save timer settings** to apply it.
+There you can also enable time remaining warnings and choose how many minutes before each allowance ends they appear.
 
 ### Block screen
 
@@ -81,7 +82,7 @@ State is keyed by date string (`YYYY-MM-DD`), so elapsed time and the extra-time
 |---|---|
 | `storage` | Persist elapsed time, limit, and daily state across browser sessions |
 | `alarms` | Fire the 10-second tracking tick reliably from the service worker |
-| `notifications` | Show the 1-minute warning and the limit-reached alert |
+| `notifications` | Show the configurable time warnings and the limit-reached alert |
 | `tabs` | Detect the active tab, close YouTube tabs when the notification is dismissed |
 | `host_permissions: *://*.youtube.com/*` | Inject the content script and query YouTube tabs |
 
