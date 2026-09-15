@@ -29,7 +29,7 @@
 
   // ── helpers ────────────────────────────────────────────────────────────────
   function isShortsUrl() {
-    return location.pathname.startsWith('/shorts');
+    return location.pathname === '/shorts' || location.pathname.startsWith('/shorts/');
   }
 
   function showShortsBlockOverlay() {

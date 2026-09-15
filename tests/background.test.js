@@ -56,6 +56,36 @@ test('missed days add their capped allowance without exceeding the bank maximum'
   assert.equal(state.rolloverBankMs, 90 * minute);
 });
 
+test('a missed leap day contributes one capped allowance', async () => {
+  const worker = createBackgroundWorker({
+    date: '2024-02-28', elapsed: 60 * minute, limitMs: 60 * minute,
+    rolloverEnabled: true, rolloverDailyCapMs: 30 * minute,
+    rolloverBankMs: 0
+  }, { now: new Date(2024, 2, 1, 12).getTime() });
+
+  const state = await worker.call('getState');
+  assert.equal(state.date, '2024-03-01');
+  assert.equal(state.rolloverBankMs, 30 * minute);
+  assert.equal(worker.store.watchHistory['2024-02-28'], 60 * minute);
+});
+
+test('history keeps the 365-day boundary and removes older entries on day change', async () => {
+  const worker = createBackgroundWorker({
+    date: '2026-09-14', elapsed: 10 * minute,
+    watchHistory: {
+      '2025-09-14': 1 * minute,
+      '2025-09-15': 2 * minute,
+      '2026-09-13': 3 * minute
+    }
+  });
+
+  await worker.call('getState');
+  assert.equal('2025-09-14' in worker.store.watchHistory, false);
+  assert.equal(worker.store.watchHistory['2025-09-15'], 2 * minute);
+  assert.equal(worker.store.watchHistory['2026-09-13'], 3 * minute);
+  assert.equal(worker.store.watchHistory['2026-09-14'], 10 * minute);
+});
+
 test('disabled rollover discards an existing bank on the next day', async () => {
   const worker = createBackgroundWorker({
     date: '2026-09-14',
@@ -128,6 +158,60 @@ test('a delayed alarm can add at most fifteen seconds', async () => {
   worker.setLastTickAge(100_000);
   await worker.call('onTick');
   assert.equal(worker.store.elapsed, 15_000);
+});
+
+test('resuming YouTube after a long pause does not count the paused interval', async () => {
+  const worker = createBackgroundWorker({ elapsed: 0, limitMs: 60 * minute });
+  worker.setActiveTabs([{ id: 7, url: 'https://www.youtube.com/watch?v=abc' }]);
+  await worker.call('refreshTracking');
+  worker.setNow(new Date(2026, 8, 15, 12, 0, 10));
+  await worker.call('onTick');
+
+  worker.setActiveTabs([{ id: 8, url: 'https://example.com/' }]);
+  await worker.call('refreshTracking');
+  worker.setNow(new Date(2026, 8, 15, 12, 30));
+  worker.setActiveTabs([{ id: 9, url: 'https://m.youtube.com/watch?v=xyz' }]);
+  await worker.call('refreshTracking');
+  worker.setNow(new Date(2026, 8, 15, 12, 30, 10));
+  await worker.call('onTick');
+
+  assert.equal(worker.store.elapsed, 20_000);
+  assert.equal(worker.store.ytTabId, 9);
+});
+
+test('a backward clock adjustment cannot reduce elapsed watch time', async () => {
+  const worker = createBackgroundWorker({
+    elapsed: 5 * minute, limitMs: 60 * minute, tracking: true
+  });
+  worker.setLastTickAge(-20_000);
+  await worker.call('onTick');
+  assert.equal(worker.store.elapsed, 5 * minute);
+  worker.setNow(new Date(2026, 8, 15, 12, 0, 10));
+  await worker.call('onTick');
+  assert.equal(worker.store.elapsed, 5 * minute + 10_000);
+});
+
+test('a lookalike domain does not start YouTube tracking', async () => {
+  const worker = createBackgroundWorker({ elapsed: 0, limitMs: 60 * minute });
+  worker.setActiveTabs([
+    { id: 7, url: 'https://www.youtube.com.evil.example/watch?v=abc' },
+    { id: 8, url: 'not a valid URL' }
+  ]);
+  await worker.call('refreshTracking');
+  assert.equal(worker.store.tracking, undefined);
+  assert.equal(worker.alarms.has('yt_tick'), false);
+});
+
+test('installation sets missing defaults without replacing existing limits', async () => {
+  const fresh = createBackgroundWorker();
+  await fresh.events.installed.emit();
+  assert.equal(fresh.store.limitMs, 60 * minute);
+  assert.equal(fresh.store.rolloverDailyCapMs, 30 * minute);
+
+  const configured = createBackgroundWorker({ limitMs: 90 * minute, rolloverDailyCapMs: 15 * minute });
+  await configured.events.installed.emit();
+  assert.equal(configured.store.limitMs, 90 * minute);
+  assert.equal(configured.store.rolloverDailyCapMs, 15 * minute);
 });
 
 test('reaching the effective limit stops tracking and sends one blocking notification', async () => {

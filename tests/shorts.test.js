@@ -99,3 +99,24 @@ test('changing playback setting on a Shorts page updates the overlay immediately
   await page.changeSettings({ shortsBlockPlayback: false });
   assert.equal(page.document.getElementById('ytl-shorts-block'), null);
 });
+
+test('lookalike paths do not show the Shorts playback block', async () => {
+  const page = await createShortsPage({
+    pathname: '/shortshelf', store: { shortsBlockPlayback: true }
+  });
+  assert.equal(page.document.getElementById('ytl-shorts-block'), null);
+  page.navigate('/shorts/video123');
+  assert.ok(page.document.getElementById('ytl-shorts-block'));
+  page.navigate('/shorts-other');
+  assert.equal(page.document.getElementById('ytl-shorts-block'), null);
+});
+
+test('Shorts playback block omits the watch link when the path has no video ID', async () => {
+  const page = await createShortsPage({
+    pathname: '/shorts/', store: { shortsBlockPlayback: true }
+  });
+  const overlay = page.document.getElementById('ytl-shorts-block');
+  assert.ok(overlay);
+  assert.doesNotMatch(overlay.innerHTML, /sb-btn-watch/);
+  assert.match(overlay.innerHTML, /sb-btn-back/);
+});

@@ -109,6 +109,33 @@ test('history summary and heatmap use only days in the selected range', async ()
   assert.equal(grid.children.length, 227);
 });
 
+test('empty history renders zero totals and unmarked heatmap cells', async () => {
+  const page = createOptionsPage();
+  await page.rangeButtons[2].emit('click');
+
+  const get = id => page.document.getElementById(id);
+  assert.equal(get('history-total').textContent, '0m');
+  assert.equal(get('history-average').textContent, '0m');
+  assert.equal(get('history-longest').textContent, '0m');
+  assert.equal(get('history-active').textContent, '0');
+  const grid = get('history-chart').children[0].children[0].children[1].children[1];
+  assert.ok(grid.children.length > 0);
+  assert.ok(grid.children.every(cell => cell.dataset.level === '0'));
+});
+
+test('history ranges include leap day without changing their day counts', () => {
+  const page = createOptionsPage({ now: new Date(2024, 2, 1, 12) });
+  const monthDays = vm.runInContext('YtLimiterHistory.days("month", new Date())', page.context);
+  assert.equal(monthDays.length, 30);
+  assert.equal(monthDays[0].getMonth(), 1);
+  assert.equal(monthDays[0].getDate(), 1);
+  assert.ok(monthDays.some(day => day.getMonth() === 1 && day.getDate() === 29));
+
+  const yearDays = vm.runInContext('YtLimiterHistory.days("year", new Date())', page.context);
+  assert.ok(yearDays.some(day => day.getMonth() === 1 && day.getDate() === 29));
+  assert.equal(yearDays.at(-1).getDate(), 1);
+});
+
 test('timer settings save limit, rollover, warning lead time, and toggles together', async () => {
   const page = createOptionsPage({
     store: { timerWarn: false, timerWarnMinutes: 12, timerGrace: false },
@@ -139,6 +166,21 @@ test('timer settings save limit, rollover, warning lead time, and toggles togeth
   assert.equal(page.store.timerWarnMinutes, 15);
   assert.equal(page.store.timerCloseTab, false);
   assert.equal(page.store.timerGrace, false);
+});
+
+test('settings page clamps stored warning minutes before displaying or saving them', async () => {
+  for (const { stored, expected } of [
+    { stored: 0, expected: '1' },
+    { stored: 99, expected: '15' },
+    { stored: 'invalid', expected: '1' }
+  ]) {
+    const page = createOptionsPage({ store: { timerWarnMinutes: stored } });
+    const slider = page.document.getElementById('warning-minutes-slider');
+    assert.equal(String(slider.value), expected);
+    assert.equal(page.document.getElementById('warning-minutes-badge').textContent, `${expected}m`);
+    await page.document.getElementById('save-timer').emit('click');
+    assert.equal(page.store.timerWarnMinutes, Number(expected));
+  }
 });
 
 test('Shorts settings can be discarded or saved after a change', async () => {

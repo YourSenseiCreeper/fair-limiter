@@ -87,7 +87,7 @@ function createBackgroundWorker(store = {}, options = {}) {
     windows: { onFocusChanged: events.windowFocusChanged }
   };
 
-  const context = vm.createContext({ chrome, Date: WorkerDate });
+  const context = vm.createContext({ chrome, Date: WorkerDate, URL });
   context.importScripts = (...files) => {
     for (const file of files) {
       vm.runInContext(fs.readFileSync(path.join(repositoryRoot, file), 'utf8'), context);
