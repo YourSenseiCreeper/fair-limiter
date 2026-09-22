@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { createBackgroundWorker } = require('./helpers/background-worker');
 const minute = 60_000;
 
-test('warns once before the daily limit and once before carried-over time ends', async () => {
+test('warns before the daily limit, when saved time starts, and before it ends', async () => {
   const worker = createBackgroundWorker({
     tracking: true,
     limitMs: 60 * minute,
@@ -16,18 +16,25 @@ test('warns once before the daily limit and once before carried-over time ends',
   assert.equal(worker.notifications.length, 0);
   await worker.tickAt(50 * minute);
   await worker.tickAt(51 * minute);
-  await worker.tickAt(79 * minute);
+  await worker.tickAt(60 * minute);
   assert.equal(worker.notifications.length, 1);
+  await worker.tickAt(60 * minute + 10_000);
+  assert.equal(worker.notifications.length, 2);
+  assert.equal(worker.notifications[1].id, 'yt_rollover_start_2026-09-15');
+  assert.match(worker.notifications[1].message, /30 minutes remain in your saved-time bank/);
+  await worker.tickAt(61 * minute);
+  await worker.tickAt(79 * minute);
+  assert.equal(worker.notifications.length, 2);
   assert.match(worker.notifications[0].title, /daily limit/);
 
   await worker.tickAt(80 * minute);
   await worker.tickAt(81 * minute);
-  assert.equal(worker.notifications.length, 2);
-  assert.match(worker.notifications[1].title, /carried-over time/);
-  assert.notEqual(worker.notifications[0].id, worker.notifications[1].id);
+  assert.equal(worker.notifications.length, 3);
+  assert.match(worker.notifications[2].title, /carried-over time/);
+  assert.notEqual(worker.notifications[1].id, worker.notifications[2].id);
 });
 
-test('warns at the start of a short carried-over allowance', async () => {
+test('a short bank starts with one notification instead of two overlapping warnings', async () => {
   const worker = createBackgroundWorker({
     tracking: true,
     limitMs: 60 * minute,
@@ -38,8 +45,12 @@ test('warns at the start of a short carried-over allowance', async () => {
 
   await worker.tickAt(45 * minute);
   await worker.tickAt(60 * minute);
+  await worker.tickAt(60 * minute + 10_000);
+  await worker.tickAt(61 * minute);
   assert.equal(worker.notifications.length, 2);
-  assert.match(worker.notifications[1].title, /5 minutes of carried-over time left/);
+  assert.equal(worker.notifications[1].id, 'yt_rollover_start_2026-09-15');
+  assert.match(worker.notifications[1].message, /5 minutes remain in your saved-time bank/);
+  assert.equal(worker.store.rolloverWarningDate, '2026-09-15');
 });
 
 test('respects the warning toggle and does not add a rollover warning without rollover', async () => {
@@ -52,6 +63,8 @@ test('respects the warning toggle and does not add a rollover warning without ro
     timerWarn: false
   });
   await disabled.tickAt(50 * minute);
+  await disabled.tickAt(60 * minute);
+  await disabled.tickAt(60 * minute + 10_000);
   await disabled.tickAt(80 * minute);
   assert.equal(disabled.notifications.length, 0);
 
@@ -61,6 +74,8 @@ test('respects the warning toggle and does not add a rollover warning without ro
   await noRollover.tickAt(59 * minute);
   assert.equal(noRollover.notifications.length, 1);
   assert.match(noRollover.notifications[0].title, /daily limit/);
+  await noRollover.tickAt(60 * minute);
+  assert.equal(noRollover.notifications[1].id, 'yt_limit_notif');
 });
 
 test('does not repeat a warning after the service worker restarts', async () => {
@@ -78,9 +93,48 @@ test('does not repeat a warning after the service worker restarts', async () => 
   const restarted = createBackgroundWorker(store);
   await restarted.tickAt(51 * minute);
   assert.equal(restarted.notifications.length, 0);
-  await restarted.tickAt(80 * minute);
+  await restarted.tickAt(60 * minute);
+  assert.equal(restarted.notifications.length, 0);
+  await restarted.tickAt(60 * minute + 10_000);
   assert.equal(restarted.notifications.length, 1);
-  assert.match(restarted.notifications[0].title, /carried-over time/);
+  assert.equal(restarted.notifications[0].id, 'yt_rollover_start_2026-09-15');
+
+  const restartedAgain = createBackgroundWorker(store);
+  await restartedAgain.tickAt(61 * minute);
+  assert.equal(restartedAgain.notifications.length, 0);
+  await restartedAgain.tickAt(80 * minute);
+  assert.equal(restartedAgain.notifications.length, 1);
+  assert.match(restartedAgain.notifications[0].title, /carried-over time/);
+});
+
+test('saved-time start notification is available again after a daily reset', async () => {
+  const worker = createBackgroundWorker({
+    tracking: true, limitMs: 60 * minute,
+    rolloverEnabled: true, rolloverBankMs: 30 * minute,
+    rolloverStartDate: '2026-09-15'
+  });
+
+  await worker.request({ type: 'RESET_DAY' });
+  assert.equal(worker.store.rolloverStartDate, null);
+  worker.store.tracking = true;
+  await worker.tickAt(60 * minute);
+  await worker.tickAt(60 * minute + 10_000);
+  assert.equal(worker.notifications[0].id, 'yt_rollover_start_2026-09-15');
+});
+
+test('yesterday’s saved-time start notification does not suppress today’s', async () => {
+  const worker = createBackgroundWorker({
+    date: '2026-09-14', elapsed: 60 * minute, tracking: true,
+    limitMs: 60 * minute, rolloverEnabled: true,
+    rolloverBankMs: 30 * minute,
+    rolloverStartDate: '2026-09-14'
+  });
+
+  await worker.call('getState');
+  await worker.tickAt(60 * minute);
+  await worker.tickAt(60 * minute + 10_000);
+  assert.equal(worker.notifications[0].id, 'yt_rollover_start_2026-09-15');
+  assert.equal(worker.store.rolloverStartDate, '2026-09-15');
 });
 
 test('warning lead time is clamped to one or fifteen minutes', async () => {
