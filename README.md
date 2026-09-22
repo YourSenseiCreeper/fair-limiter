@@ -46,18 +46,42 @@ Click the toolbar icon to open the popup. It shows:
 - **Used today / Daily limit / Carried over** stats
 - The **+5 min grace period** button (shown when allowed in timer settings, enabled after the limit is reached, one use per day)
 
+<p align="center">
+  <img src="docs/control-popup-2.png" alt="YT Limiter popup showing a fresh daily allowance" width="320">
+  <img src="docs/control-popup.jpg" alt="YT Limiter popup showing time used and the grace period state" width="320">
+</p>
+
 Set the daily limit in the timer settings and click **Save timer settings** to apply it.
 There you can also enable time remaining warnings and choose how many minutes before each allowance ends they appear. With warnings enabled, the extension also notifies you once when your daily limit is reached and the saved-time bank starts being used. If the remaining bank time is already within the warning window, this start notification replaces the separate low-bank warning for that day.
+
+![Timer settings with the daily limit, saved-time bank, contributing weekdays, and warnings](docs/settings-main.png)
 
 ### Saved-time bank
 
 Enable **Carry unused time forward** in the timer settings, set the maximum added per day, and select which days of the week may contribute unused time to the bank. Monday through Friday are selected by default; Saturday and Sunday are not. You can select any combination, including no days, then click **Save timer settings**. The daily viewing limit still applies on every day, regardless of this selection.
 
-At the next day change, unused daily time is added only if the previous day was selected. If the extension was closed for several days, only selected days in that gap contribute their capped daily allowance. Time already spent from the bank is deducted first, and the bank never exceeds 90 minutes. For example, if the bank is fully spent on Friday, it stays empty on Monday with the default weekday selection; the unused Saturday and Sunday limits do not refill it. Changing the selected days affects future bank calculations and does not remove time already saved.
+At the next day change, unused daily time is added only if the previous day was selected. If the extension was closed for several days, only selected days in that gap contribute their capped daily allowance. Time already spent from the bank is deducted first, and the bank never exceeds 90 minutes. 
+> For example, if the bank is fully spent on Friday, it stays empty on Monday with the default weekday selection; the unused Saturday and Sunday limits do not refill it. Changing the selected days affects future bank calculations and does not remove time already saved.
+
+### Shorts controls
+
+The **Shorts** settings can hide Shorts sections throughout YouTube, block `/shorts/` playback entirely, or enable both controls together. Changes apply to newly loaded or refreshed YouTube tabs.
+
+![Shorts settings with controls for hiding Shorts sections and blocking Shorts playback](docs/settings-shorts.png)
+
+### Watch-time history
+
+The **History** tab visualises locally stored watch time over the last week, month, or eight months. Select a preview below to open it at full size.
+
+| Week | Month | 8 months |
+|---|---|---|
+| [![Seven-day watch-time history](docs/settings-history-week.png)](docs/settings-history-week.png) | [![Thirty-day watch-time history](docs/settings-history-month.png)](docs/settings-history-month.png) | [![Eight-month watch-time history](docs/settings-history-8months.png)](docs/settings-history-8months.png) |
 
 ### Block screen
 
 When you visit YouTube after your limit is reached, the page is replaced with a full-screen block. From there you can use the grace period button if it hasn't been used yet, or navigate somewhere else.
+
+![YouTube daily limit block screen with grace period and navigation actions](docs/times-up.jpg)
 
 ### Grace period
 
