@@ -27,7 +27,7 @@ const messageHandlers = Object.freeze({
     return { ok: true };
   },
   SET_ROLLOVER: async msg => {
-    await settingsRepository.setRollover(msg.enabled, msg.dailyCapMs);
+    await settingsRepository.setRollover(msg.enabled, msg.dailyCapMs, msg.days);
     return { ok: true };
   },
   RESET_DAY: () => timer.resetDay(),

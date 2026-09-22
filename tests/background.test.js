@@ -49,11 +49,70 @@ test('missed days add their capped allowance without exceeding the bank maximum'
     limitMs: 60 * minute,
     rolloverEnabled: true,
     rolloverBankMs: 0,
-    rolloverDailyCapMs: 30 * minute
+    rolloverDailyCapMs: 30 * minute,
+    rolloverDays: [0, 1, 2, 3, 4, 5, 6]
   });
 
   const state = await worker.call('getState');
   assert.equal(state.rolloverBankMs, 90 * minute);
+});
+
+test('a fully spent Friday bank stays empty on Monday with weekday rollover', async () => {
+  const worker = createBackgroundWorker({
+    date: '2026-09-18', elapsed: 150 * minute, limitMs: 60 * minute,
+    rolloverEnabled: true, rolloverBankMs: 90 * minute,
+    rolloverDailyCapMs: 30 * minute
+  }, { now: new Date(2026, 8, 21, 12).getTime() });
+
+  const state = await worker.call('getState');
+  assert.equal(state.rolloverBankMs, 0);
+  assert.equal(state.rolloverRemainingMs, 0);
+  assert.equal(state.effectiveLimitMs, 60 * minute);
+  assert.deepEqual(Array.from(state.rolloverDays), [1, 2, 3, 4, 5]);
+});
+
+test('Friday contributes its unused time, but unselected weekend days do not', async () => {
+  const worker = createBackgroundWorker({
+    date: '2026-09-18', elapsed: 35 * minute, limitMs: 60 * minute,
+    rolloverEnabled: true, rolloverBankMs: 0,
+    rolloverDailyCapMs: 30 * minute,
+    rolloverDays: [1, 2, 3, 4, 5]
+  }, { now: new Date(2026, 8, 21, 12).getTime() });
+
+  assert.equal((await worker.call('getState')).rolloverBankMs, 25 * minute);
+});
+
+test('selected weekend day contributes during a gap while excluded Friday does not', async () => {
+  const worker = createBackgroundWorker({
+    date: '2026-09-18', elapsed: 0, limitMs: 60 * minute,
+    rolloverEnabled: true, rolloverBankMs: 0,
+    rolloverDailyCapMs: 30 * minute,
+    rolloverDays: [6]
+  }, { now: new Date(2026, 8, 21, 12).getTime() });
+
+  assert.equal((await worker.call('getState')).rolloverBankMs, 30 * minute);
+});
+
+test('a longer gap counts only the selected weekday in each week', async () => {
+  const worker = createBackgroundWorker({
+    date: '2026-09-18', elapsed: 60 * minute, limitMs: 60 * minute,
+    rolloverEnabled: true, rolloverBankMs: 0,
+    rolloverDailyCapMs: 30 * minute,
+    rolloverDays: [6]
+  }, { now: new Date(2026, 8, 28, 12).getTime() });
+
+  assert.equal((await worker.call('getState')).rolloverBankMs, 60 * minute);
+});
+
+test('an empty day selection never adds time and still deducts spent bank time', async () => {
+  const worker = createBackgroundWorker({
+    date: '2026-09-18', elapsed: 75 * minute, limitMs: 60 * minute,
+    rolloverEnabled: true, rolloverBankMs: 30 * minute,
+    rolloverDailyCapMs: 30 * minute,
+    rolloverDays: []
+  }, { now: new Date(2026, 8, 21, 12).getTime() });
+
+  assert.equal((await worker.call('getState')).rolloverBankMs, 15 * minute);
 });
 
 test('a missed leap day contributes one capped allowance', async () => {
@@ -207,11 +266,15 @@ test('installation sets missing defaults without replacing existing limits', asy
   await fresh.events.installed.emit();
   assert.equal(fresh.store.limitMs, 60 * minute);
   assert.equal(fresh.store.rolloverDailyCapMs, 30 * minute);
+  assert.deepEqual(Array.from(fresh.store.rolloverDays), [1, 2, 3, 4, 5]);
 
-  const configured = createBackgroundWorker({ limitMs: 90 * minute, rolloverDailyCapMs: 15 * minute });
+  const configured = createBackgroundWorker({
+    limitMs: 90 * minute, rolloverDailyCapMs: 15 * minute, rolloverDays: [0, 6]
+  });
   await configured.events.installed.emit();
   assert.equal(configured.store.limitMs, 90 * minute);
   assert.equal(configured.store.rolloverDailyCapMs, 15 * minute);
+  assert.deepEqual(Array.from(configured.store.rolloverDays), [0, 6]);
 });
 
 test('reaching the effective limit stops tracking and sends one blocking notification', async () => {
@@ -274,15 +337,18 @@ test('dismissing the limit notice closes tabs only when the setting allows it', 
 test('settings messages clamp rollover and persist Shorts options', async () => {
   const worker = createBackgroundWorker({ rolloverBankMs: 120 * minute });
   const rollover = await worker.request({
-    type: 'SET_ROLLOVER', enabled: true, dailyCapMs: 120 * minute
+    type: 'SET_ROLLOVER', enabled: true, dailyCapMs: 120 * minute,
+    days: [0, 6, 6, -1, 7, '1']
   });
   assert.equal(rollover.ok, true);
   assert.equal(worker.store.rolloverBankMs, 90 * minute);
   assert.equal(worker.store.rolloverDailyCapMs, 90 * minute);
+  assert.deepEqual(Array.from(worker.store.rolloverDays), [0, 6]);
 
   await worker.request({ type: 'SET_ROLLOVER', enabled: false, dailyCapMs: 1 * minute });
   assert.equal(worker.store.rolloverBankMs, 0);
   assert.equal(worker.store.rolloverDailyCapMs, 5 * minute);
+  assert.deepEqual(Array.from(worker.store.rolloverDays), [0, 6]);
 
   const defaults = await worker.request({ type: 'GET_SHORTS' });
   assert.equal(defaults.hideSections, false);

@@ -7,7 +7,7 @@ const { FakeDocument } = require('./helpers/fake-dom');
 
 const source = fs.readFileSync(path.join(__dirname, '..', 'options.js'), 'utf8');
 const sharedSources = [
-  'ui-format.js', 'history-domain.js', 'history-view.js',
+  'ui-format.js', 'time-domain.js', 'history-domain.js', 'history-view.js',
   'timer-settings-controller.js', 'shorts-settings-controller.js'
 ]
   .map(file => fs.readFileSync(path.join(__dirname, '..', 'lib', file), 'utf8'));
@@ -23,6 +23,7 @@ function createOptionsPage({ now = new Date(2026, 8, 15, 12), store = {}, state 
   });
   document.setSelector('.range-btn', rangeButtons);
   document.ensure('save-bar-shorts').classList.add('hidden');
+  for (const day of [1, 2, 3, 4, 5, 6, 0]) document.ensure(`rollover-day-${day}`);
 
   class PageDate extends Date {
     constructor(...args) { super(...(args.length ? args : [now.getTime()])); }
@@ -139,12 +140,15 @@ test('history ranges include leap day without changing their day counts', () => 
 test('timer settings save limit, rollover, warning lead time, and toggles together', async () => {
   const page = createOptionsPage({
     store: { timerWarn: false, timerWarnMinutes: 12, timerGrace: false },
-    state: { rolloverEnabled: true, rolloverDailyCapMs: 20 * minute }
+    state: { rolloverEnabled: true, rolloverDailyCapMs: 20 * minute, rolloverDays: [1, 3, 5] }
   });
   const get = id => page.document.getElementById(id);
   assert.equal(get('warning-minutes-slider').value, 12);
   assert.equal(get('warning-minutes-slider').disabled, true);
   assert.equal(get('rollover-cap-slider').disabled, false);
+  assert.equal(get('rollover-day-1').checked, true);
+  assert.equal(get('rollover-day-2').checked, false);
+  assert.equal(get('rollover-day-6').checked, false);
 
   get('toggle-warn').checked = true;
   await get('toggle-warn').emit('change');
@@ -154,6 +158,7 @@ test('timer settings save limit, rollover, warning lead time, and toggles togeth
   assert.equal(get('warning-minutes-badge').textContent, '15m');
   get('timer-slider').value = '90';
   get('rollover-cap-slider').value = '25';
+  get('rollover-day-6').checked = true;
   get('toggle-close-tab').checked = false;
   await get('save-timer').emit('click');
 
@@ -162,10 +167,28 @@ test('timer settings save limit, rollover, warning lead time, and toggles togeth
   assert.equal(limitMessage.limitMs, 90 * minute);
   assert.equal(rolloverMessage.enabled, true);
   assert.equal(rolloverMessage.dailyCapMs, 25 * minute);
+  assert.deepEqual(Array.from(rolloverMessage.days), [1, 3, 5, 6]);
   assert.equal(page.store.timerWarn, true);
   assert.equal(page.store.timerWarnMinutes, 15);
   assert.equal(page.store.timerCloseTab, false);
   assert.equal(page.store.timerGrace, false);
+});
+
+test('rollover day choices default to weekdays and follow the rollover toggle', async () => {
+  const page = createOptionsPage();
+  const get = id => page.document.getElementById(id);
+  for (const day of [1, 2, 3, 4, 5]) {
+    assert.equal(get(`rollover-day-${day}`).checked, true);
+    assert.equal(get(`rollover-day-${day}`).disabled, true);
+  }
+  for (const day of [0, 6]) assert.equal(get(`rollover-day-${day}`).checked, false);
+
+  get('toggle-rollover').checked = true;
+  await get('toggle-rollover').emit('change');
+  assert.equal(get('rollover-day-6').disabled, false);
+  for (const day of [1, 2, 3, 4, 5]) get(`rollover-day-${day}`).checked = false;
+  await get('save-timer').emit('click');
+  assert.deepEqual(Array.from(page.sent.find(message => message.type === 'SET_ROLLOVER').days), []);
 });
 
 test('settings page clamps stored warning minutes before displaying or saving them', async () => {

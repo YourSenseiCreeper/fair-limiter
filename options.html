@@ -250,6 +250,30 @@
     .slider-wrap.disabled { opacity: .42; }
     .slider-wrap.disabled input { cursor: not-allowed; }
 
+    .rollover-days {
+      padding: 18px 20px;
+      border-top: 1px solid var(--border);
+    }
+    .rollover-days.disabled { opacity: .42; }
+    .rollover-day-choices {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .rollover-day-choices label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 9px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: .8rem;
+    }
+    .rollover-day-choices input { accent-color: var(--accent); }
+    .rollover-day-choices input:disabled { cursor: not-allowed; }
+
     .slider-top {
       display: flex;
       align-items: center;
@@ -563,7 +587,7 @@
         </div>
         <div class="card-row-ctrl">
           <label class="toggle red">
-            <input type="checkbox" id="toggle-rollover" aria-controls="rollover-cap-wrap">
+            <input type="checkbox" id="toggle-rollover" aria-controls="rollover-cap-wrap rollover-days-wrap">
             <div class="toggle-track"></div>
             <div class="toggle-thumb"></div>
           </label>
@@ -582,6 +606,19 @@
           <span>1h 30m</span>
         </div>
         <div class="card-row-desc" id="rollover-current" style="margin-top:12px;">Currently saved: 0m of 1h 30m</div>
+      </div>
+      <div class="rollover-days" id="rollover-days-wrap" role="group" aria-label="Days that add unused time">
+        <div class="slider-label">Days that add unused time</div>
+        <div class="card-row-desc">Only unused daily time from selected days enters the bank. Your daily limit still applies every day.</div>
+        <div class="rollover-day-choices">
+          <label><input type="checkbox" id="rollover-day-1" checked> Mon</label>
+          <label><input type="checkbox" id="rollover-day-2" checked> Tue</label>
+          <label><input type="checkbox" id="rollover-day-3" checked> Wed</label>
+          <label><input type="checkbox" id="rollover-day-4" checked> Thu</label>
+          <label><input type="checkbox" id="rollover-day-5" checked> Fri</label>
+          <label><input type="checkbox" id="rollover-day-6"> Sat</label>
+          <label><input type="checkbox" id="rollover-day-0"> Sun</label>
+        </div>
       </div>
     </div>
 
@@ -795,6 +832,7 @@
 <div class="toast" id="toast">✓ Settings saved</div>
 
 <script src="lib/ui-format.js"></script>
+<script src="lib/time-domain.js"></script>
 <script src="lib/history-domain.js"></script>
 <script src="lib/history-view.js"></script>
 <script src="lib/timer-settings-controller.js"></script>

@@ -12,7 +12,7 @@ A Chrome extension that enforces a daily time limit on YouTube, with a one-time 
 - **Limit notification** — when time runs out, a persistent notification appears; dismissing it closes all YouTube tabs
 - **Block screen** — navigating to YouTube after the limit replaces the page content with a styled "time's up" screen
 - **+5 min grace period** — a one-time daily extension, available from both the popup and the block screen
-- **Unused-time rollover** — optionally carry unused daily time forward, with a configurable per-day contribution and a 90-minute bank cap
+- **Unused-time rollover** — optionally carry unused daily time forward from selected weekdays, with a configurable per-day contribution and a 90-minute bank cap
 - **Daily reset** — elapsed time and the extra-time token reset automatically at midnight
 
 ---
@@ -48,6 +48,12 @@ Click the toolbar icon to open the popup. It shows:
 
 Set the daily limit in the timer settings and click **Save timer settings** to apply it.
 There you can also enable time remaining warnings and choose how many minutes before each allowance ends they appear.
+
+### Saved-time bank
+
+Enable **Carry unused time forward** in the timer settings, set the maximum added per day, and select which days of the week may contribute unused time to the bank. Monday through Friday are selected by default; Saturday and Sunday are not. You can select any combination, including no days, then click **Save timer settings**. The daily viewing limit still applies on every day, regardless of this selection.
+
+At the next day change, unused daily time is added only if the previous day was selected. If the extension was closed for several days, only selected days in that gap contribute their capped daily allowance. Time already spent from the bank is deducted first, and the bank never exceeds 90 minutes. For example, if the bank is fully spent on Friday, it stays empty on Monday with the default weekday selection; the unused Saturday and Sunday limits do not refill it. Changing the selected days affects future bank calculations and does not remove time already saved.
 
 ### Block screen
 
@@ -90,7 +96,7 @@ The background service worker registers a Chrome alarm (`yt_tick`) that fires ev
 
 On each tick the timer checks whether a YouTube tab is active. If so, it saves the elapsed time in `chrome.storage.local`. When the total exceeds the configured limit, it triggers the notification and sets a `limitReached` flag that the content script checks on every page load.
 
-State is keyed by date string (`YYYY-MM-DD`), so elapsed time and the extra-time token reset automatically when the date changes. When rollover is enabled, unused daily allowance is added to the saved-time bank at that point. The daily allowance is consumed first; saved time is only consumed after it.
+State is keyed by date string (`YYYY-MM-DD`), so elapsed time and the extra-time token reset automatically when the date changes. When rollover is enabled, unused daily allowance from selected days of the week is added to the saved-time bank at that point. The daily allowance is consumed first; saved time is only consumed after it.
 
 ---
 
